@@ -1,0 +1,31 @@
+name: Deploy Express.js App
+
+on:
+  push:
+    branches:
+      - main # Change to your default branch
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to server via SSH command
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            cd /var/www/client-test/cheb/backend.store.cheb.theantopolis.com # Navigate to your app directory on the server
+            GIT_URL="https://x-access-token:${{ secrets.GIT_CREDENTIAL }}@github.com/The-Antopolis/backend.cheb.co"
+            git reset --hard
+            git pull $GIT_URL main
+            # git pull origin main # Pull the latest changes from your repository
+            export NVM_DIR=~/.nvm
+            source ~/.nvm/nvm.sh 
+            npm i --legacy-peer-deps
+            # Install dependencies on the server
+            # pm2 restart all # Restart your application using PM2 (or any other process manager you use)
+            pm2 restart server.js
