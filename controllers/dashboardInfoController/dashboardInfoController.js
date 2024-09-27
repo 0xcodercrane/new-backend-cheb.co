@@ -55,41 +55,103 @@ const adminDashboardInfo = asyncHandler(async (req, res) => {
 
 const sellerDashboardInfo = asyncHandler(async (req, res) => {
   const id = req.seller._id;
-
-  const payment = await PaymentRecieve.find({ seller: id });
-  console.log(payment);
-
   try {
+    const fromDate = req.query?.from ? new Date(req.query.from) : null;
+    const toDate = req.query?.to ? new Date(req.query.to) : null;
+    const from = fromDate ? new Date(fromDate.setUTCHours(0, 0, 0, 0)) : null;
+    const to = toDate ? new Date(toDate.setUTCHours(23, 59, 59, 999)) : null;
+    const dateFilter = (from && to) ? { createdAt: { $gte: from, $lt: to } } : {};
+    const dateOfPaymentFilter = (from && to) ? { dateOfPayment: { $gte: from, $lt: to } } : {};
+  
+
     const [
-      totalOrderValue,
       totalPaidValue,
       allPaymentsToSeller,
       paymentApprovalCount,
+      totalEarningAmounts,
+      allSalesData
+       
     ] = await Promise.all([
-      PaymentRecieve.aggregate([
-        { $match: { seller: mongoose.Types.ObjectId(id) } },
-        { $group: { _id: null, totalAmount: { $sum: "$amount" } } },
-      ]),
       PaymentToSeller.aggregate([
-        { $match: { seller: mongoose.Types.ObjectId(id) } },
+        {
+          $match: {
+            seller: mongoose.Types.ObjectId(id),
+            ...dateOfPaymentFilter
+          }
+        },
         { $group: { _id: null, totalAmount: { $sum: "$amount" } } },
       ]),
-      PaymentToSeller.find({ seller: id }).populate("seller"),
-      PaymentToSeller.countDocuments({ seller: id, isApprove: false }),
+      PaymentToSeller.find({ seller: id, ...dateOfPaymentFilter }).populate("seller"),
+      PaymentToSeller.countDocuments({ seller: id, isApprove: false, ...dateOfPaymentFilter }),
+      PaymentRecieve.aggregate([
+        {
+          $match: {
+            seller: mongoose.Types.ObjectId(id),
+            ...dateFilter
+          }
+        },
+        {
+          $lookup: {
+            from: "orders",
+            let: { orderId: "$order" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ["$_id", "$$orderId"] }, 
+                     ...(req.query.earning !== "all" ? [{ $eq: ["$paymentMethod", req.query.earning] }] : []) 
+                    ]
+                  }
+                }
+              }
+            ],
+            as: "payments",
+          },
+        },
+        {
+          $unwind: "$payments",
+        },
+        {
+          $group: {
+            _id: null,  
+            totalEarningAmount: { $sum: "$payments.subtotal" }  
+          }
+        }
+      ]),
+
+      //Seller.
+      SellerStore.aggregate([
+        {
+          $match:{
+            seller: mongoose.Types.ObjectId(id),
+           ...dateFilter
+          }
+        }
+      ])
+
     ]);
 
     const responseData = {
-      totalOrderValue: totalOrderValue.length
-        ? Math.round(totalOrderValue[0].totalAmount)
+      totalOrderValue: totalEarningAmounts.length 
+        ? Math.round(totalEarningAmounts[0].totalEarningAmount)
         : 0,
+
       totalPaidValue: totalPaidValue.length
         ? Math.round(totalPaidValue[0].totalAmount)
         : 0,
       allPaymentsToSeller,
       paymentApprovalCount,
+      // totalEarningAmounts,
+      // allSalesData
+
     };
 
+    console.log("responseData",responseData)
+
     res.status(200).json(responseData);
+
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error fetching data" });

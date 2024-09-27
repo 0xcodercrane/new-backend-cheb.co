@@ -15,7 +15,7 @@ import migrationRoutes from '#routes/migrationRoutes.js';
 
 const dotenv = environment.config();
 
-const port = process.env.PORT;
+const port = process.env.PORT || 3055;
 
 connectDB();
 const app = express();
