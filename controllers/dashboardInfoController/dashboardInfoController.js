@@ -146,9 +146,6 @@ const sellerDashboardInfo = asyncHandler(async (req, res) => {
       // allSalesData
 
     };
-
-    console.log("responseData",responseData)
-
     res.status(200).json(responseData);
 
 
