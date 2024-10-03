@@ -2,30 +2,63 @@ import asyncHandler from "express-async-handler";
 import SellerCardInfo from "#models/sellerCardInfoModels/sellerCardInfoModels.js";
 
 const setCardInfo = asyncHandler(async (req, res) => {
-  const {
-    bankName,
-    accountHolderName,
-    accountNumber,
-    routingNumber,
-    mobile,
-    email,
-    bankAddress,
-    walletAddress,
-    branchName,
-  } = req.body;
+  let { paymentMethod } = req.body;
 
-  const sellerCardInfo = await SellerCardInfo.create({
-    bankName,
-    accountHolderName,
-    accountNumber,
-    routingNumber,
-    mobile,
-    email,
-    bankAddress,
-    seller: req.seller._id,
-    walletAddress,
-    branchName,
-  });
+  let sellerCardInfoData = {seller: req.seller._id}
+
+  if (paymentMethod == "credit-debit-card") {
+    let { cardHolderName,  
+      cardNumber,
+      cardExpiryDate,
+      cardCvv,
+      cardBillingAddress,
+      walletAddress
+    } = req.body
+
+    sellerCardInfoData = {
+      ...sellerCardInfoData,
+      cardHolderName,
+      cardNumber,
+      cardExpiryDate:{
+        months: cardExpiryDate.split('/')[0] || "",
+        years: cardExpiryDate.split('/')[1] || "",
+      },
+      cardCvv,
+      cardBillingAddress,
+      walletAddress,
+      paymentMethod
+    }
+  }
+
+  if (paymentMethod == "bank-account") {
+    let {
+      bankName,
+      accountHolderName,
+      accountNumber,
+      routingNumber,
+      mobile,
+      email,
+      bankAddress,
+      walletAddress,
+      branchName,
+    } = req.body;
+
+
+    sellerCardInfoData = {
+      ...sellerCardInfoData,
+      bankName,
+      accountHolderName,
+      accountNumber,
+      routingNumber,
+      mobile,
+      email,
+      bankAddress,
+      walletAddress,
+      branchName,
+      paymentMethod
+    }
+  }
+  const sellerCardInfo = await SellerCardInfo.create(sellerCardInfoData);
 
   res.status(200).json(sellerCardInfo);
 });
@@ -58,9 +91,16 @@ const updateCardInfo = asyncHandler(async (req, res) => {
     throw new Error("Card info not found");
   }
 
-  await SellerCardInfo.findByIdAndUpdate(id, {
+  const updatedData = {
     ...req.body,
-  });
+    ...(req.body.hasOwnProperty("cardExpiryDate") ? {
+      cardExpiryDate: {
+        months: req.body.cardExpiryDate.split('/')[0] || "",
+        years: req.body.cardExpiryDate.split('/')[1] || ""
+      }
+    } : {})
+  };
+  await SellerCardInfo.findByIdAndUpdate(id, updatedData);
 
   const updateCardInfo = await SellerCardInfo.findById(id);
   res.status(200).json(updateCardInfo);

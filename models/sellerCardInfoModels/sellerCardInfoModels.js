@@ -10,39 +10,66 @@ const sellerCardInfoSchema = Schema(
     },
     bankName: {
       type: String,
-      required: [true, "Please Add BankName"],
+      require:false,
     },
     accountHolderName: {
       type: String,
-      required: [true, "Please Add Account Holder Name"],
+      require:false,
     },
     bankAddress: {
       type: String,
-      required: [true, "Please Add Bank Account"],
+      require:false,
     },
     accountNumber: {
       type: Number,
-      required: [true, "Please Add Account Number"],
+      require:false,
     },
     routingNumber: {
       type: Number,
-      required: [true, "Please Add Routing Number"],
+      require:false,
     },
     mobile: {
       type: Number,
-      required: [true, "Please Add Number"],
+      require:false,
     },
     email: {
       type: String,
-      required: [true, "Please Add Email"],
+      require:false,
     },
     walletAddress: {
       type: String,
+      require:false,
     },
     branchName: {
       type: String,
-      required: [true, "Please Add Branch Address"],
+      require:false,
     },
+
+    cardHolderName: {
+      type: String,
+      require:false,
+    },
+    cardNumber: {
+      type: Number,
+      require:false,
+    },
+    cardExpiryDate: {
+      months:String,
+      years: String,
+      require: false,
+    },
+    cardCvv: {
+      type: Number,
+      require:false,
+    },
+    cardBillingAddress: {
+      type: String,
+      require:false,
+    },
+    paymentMethod : {
+      type: String,
+      require:false
+    }
   },
   {
     timestamps: true,

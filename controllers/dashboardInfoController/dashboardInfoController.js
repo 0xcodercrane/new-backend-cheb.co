@@ -62,7 +62,6 @@ const sellerDashboardInfo = asyncHandler(async (req, res) => {
     const to = toDate ? new Date(toDate.setUTCHours(23, 59, 59, 999)) : null;
     const dateFilter = (from && to) ? { createdAt: { $gte: from, $lt: to } } : {};
     const dateOfPaymentFilter = (from && to) ? { dateOfPayment: { $gte: from, $lt: to } } : {};
-  
 
     const [
       totalPaidValue,
@@ -119,17 +118,29 @@ const sellerDashboardInfo = asyncHandler(async (req, res) => {
           }
         }
       ]),
-
       //Seller.
       SellerStore.aggregate([
         {
-          $match:{
+          $match: {
             seller: mongoose.Types.ObjectId(id),
-           ...dateFilter
+            ...dateFilter 
+          }
+        },
+        {
+          $lookup: {
+            from: "orders",
+            localField: "_id", 
+            foreignField: "store", 
+            as: "orders" 
+          }
+        },
+        {
+          $group: {
+            _id: "$_id", 
+            count: { $sum: 1 } 
           }
         }
       ])
-
     ]);
 
     const responseData = {
@@ -142,12 +153,10 @@ const sellerDashboardInfo = asyncHandler(async (req, res) => {
         : 0,
       allPaymentsToSeller,
       paymentApprovalCount,
-      // totalEarningAmounts,
-      // allSalesData
+      allSalesData
 
     };
     res.status(200).json(responseData);
-
 
   } catch (error) {
     console.error(error);
