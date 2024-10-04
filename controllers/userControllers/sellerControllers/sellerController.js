@@ -60,6 +60,18 @@ const registerSeller = asyncHandler(async (req, res) => {
   const salt = await genSalt(10);
   const hashedPassword = await hash(password, salt);
 
+  const lastSeller = await Seller.findOne().sort({ sellerAliasId: -1 }).select('sellerAliasId');
+
+  let newSellerAliasId;
+
+  if (lastSeller && lastSeller.sellerAliasId) {
+    const lastIdNumber = parseInt(lastSeller.sellerAliasId.replace('SE', ''), 10);
+    const newIdNumber = lastIdNumber + 1;
+    newSellerAliasId = `SE${newIdNumber.toString().padStart(3, '0')}`;
+  } else {
+    newSellerAliasId = 'SE001';
+  }
+
   const seller = await Seller.create({
     name,
     email,
@@ -67,7 +79,8 @@ const registerSeller = asyncHandler(async (req, res) => {
     phoneNumber,
     password: hashedPassword,
     dp: dpUrl,
-    type
+    type,
+    sellerAliasId: newSellerAliasId 
   });
 
   if (seller) {

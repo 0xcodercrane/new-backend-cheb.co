@@ -7,6 +7,7 @@ import orderRoutes from "./orderRoutes/orderRoutes.js";
 import sellerPaymentRoutes from "./paymentRoutes/paymentRoutes.js";
 import { sellerDashboardInfo } from "#controllers/dashboardInfoController/dashboardInfoController.js";
 import sellerCardInfoRoutes from "./sellerCardInforRoutes/sellerCardInfo.js";
+import sellerWalletAddressRoutes from "./sellerWalletAddressRoute.js/sellerWalletAddressRoutes.js";
 
 const sellerRoutes = Router();
 
@@ -32,5 +33,6 @@ sellerRoutes.use("/payment", sellerPaymentRoutes);
 sellerRoutes.use("/cardInfo", sellerCardInfoRoutes);
 
 sellerRoutes.route("/dashboardPaymentInfo").get(sellerDashboardInfo);
+sellerRoutes.use("/wallet",sellerWalletAddressRoutes)
 
 export default sellerRoutes;

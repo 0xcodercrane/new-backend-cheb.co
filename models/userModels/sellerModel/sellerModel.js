@@ -26,7 +26,15 @@ const sellerSchema = Schema(
     dp: {
       type: String,
     },
-
+    sellerAliasId :{
+      type: String,
+      required: true,
+    },
+    walletAddress:{
+      type: String,
+      lowercase: true,
+      require:false
+    },
     isVerified: {
       type: Boolean,
       default: false,
