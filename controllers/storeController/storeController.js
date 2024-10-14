@@ -124,6 +124,9 @@ const getAllStore = asyncHandler(async (req, res) => {
   res.status(200).send(stores);
 });
 
+
+
+
 const getAllStoreByType = asyncHandler(async (req, res) => {
   const { type } = req.query;
   const query = { isArchive: false };

@@ -15,7 +15,7 @@ import {
   setProduct,
   updateSingleProduct,
 } from "#controllers/productController/productController.js";
-import { createApparel } from "#controllers/productController/sellerStoreProductController.js";
+import { createApparel, getProductRequests, getProductRequestsById, productRequests, updatedProduRequest } from "#controllers/productController/sellerStoreProductController.js";
 import {
   getSellerStoreProductSizesById,
   updateSellerStoreProductSize,
@@ -69,7 +69,12 @@ productRoutes.delete("/deleteProductImages/:id", deleteProductImage);
 
 //Seller Recommendation
 productRoutes.get("/upSellProduct/:id", getSellerRecommendation);
+productRoutes.route("/createApparel").post(createApparel); 
 
-productRoutes.route("/createApparel").post(createApparel);
+//Seller Product Request
+productRoutes.route("/request").post(productRequests); 
+productRoutes.route("/getAllProductRequest").get(getProductRequests); 
+productRoutes.route("/request/:id").get(getProductRequestsById); 
+productRoutes.route("/request/:id").patch(updatedProduRequest); 
 
 export default productRoutes;

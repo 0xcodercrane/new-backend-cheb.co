@@ -9,6 +9,7 @@ import ProductColor from "#models/colorModel/productColorModel.js";
 import { deleteObject, uploadObject } from "../../config/space.js";
 import SellerStoreProduct from "#models/productModel/sellerStoreProductModel.js";
 import Color from "#models/colorModel/colorModel.js";
+import ProductRequestModel from "#models/productModel/productRequest.js";
 
 //Get All products
 
@@ -30,6 +31,7 @@ const setProduct = asyncHandler(async (req, res) => {
     const {
       name,
       slug: initialSlug,
+      category,
       sku,
       description,
       colorWay,
@@ -85,6 +87,7 @@ const setProduct = asyncHandler(async (req, res) => {
       // sellerStore,
       name,
       slug,
+      category,
       sku,
       description,
       cardImage: cardImageUrl,
@@ -135,6 +138,34 @@ const getAllProduct = asyncHandler(async (req, res) => {
   });
 });
 
+const getAllProductRequested = asyncHandler(async (req, res) => {
+
+  const { limit = 10, page } = req.query;
+
+  if (!page) {
+    page = 1;
+  }
+  const offset = (page - 1) * limit;
+
+
+  const productRequested = await ProductRequestModel.find({
+  }).populate('requestedBy', 'name').sort({ createdAt: -1 });
+
+  const paginatedProducts = productRequested.slice(offset, offset + limit);
+  res.status(200).json({
+    products: paginatedProducts,
+    totalProducts: productRequested.length,
+    totalPage: Math.ceil(productRequested.length / limit),
+  });
+});
+
+const updateRequestedProductAction = asyncHandler(async (req, res) => {
+  const { id, action } = req.query;
+  const productRequested = await ProductRequestModel.findByIdAndUpdate({ _id:id}, {isPosted: action == "close"})
+  res.status(200).json({productRequested
+  });
+});
+
 const getAllProductByType = asyncHandler(async (req, res) => {
   const { type, limit = 10, page } = req.query;
 
@@ -161,6 +192,10 @@ const getAllProductByType = asyncHandler(async (req, res) => {
     totalPage: Math.ceil(products.length / limit),
   });
 });
+
+
+
+
 const getNotAddedProductByType = asyncHandler(async (req, res) => {
   const { search, type, sellerStore } = req.query;
 
@@ -264,6 +299,8 @@ const getSingleProductAllItem = asyncHandler(async (req, res) => {
 
 const getAllProductsForConsumer = asyncHandler(async (req, res) => {
   const { search, sortBy, type } = req.query;
+
+  console.log("268 calling");
 
   let query = { isArchive: false }; // Filter for non-archived products by default
   let sortOptions = { createdAt: -1 }; // Default sorting by createdAt descending
@@ -603,4 +640,6 @@ export {
   getSellerStoreProductsByType,
   getTrendingSneaker,
   getNotAddedProductByType,
+  getAllProductRequested,
+  updateRequestedProductAction
 };

@@ -5,7 +5,7 @@ import productSizeRoutes from "./productSizeRoutes/productSizeRoutes.js";
 import productColorRoutes from "./productColorRoutes/productColorRoutes.js";
 import orderRoutes from "./orderRoutes/orderRoutes.js";
 import sellerPaymentRoutes from "./paymentRoutes/paymentRoutes.js";
-import { sellerDashboardInfo } from "#controllers/dashboardInfoController/dashboardInfoController.js";
+import { sellerDashboardInfo, sellerDashboardRevenueGraph } from "#controllers/dashboardInfoController/dashboardInfoController.js";
 import sellerCardInfoRoutes from "./sellerCardInforRoutes/sellerCardInfo.js";
 import sellerWalletAddressRoutes from "./sellerWalletAddressRoute.js/sellerWalletAddressRoutes.js";
 
@@ -33,6 +33,7 @@ sellerRoutes.use("/payment", sellerPaymentRoutes);
 sellerRoutes.use("/cardInfo", sellerCardInfoRoutes);
 
 sellerRoutes.route("/dashboardPaymentInfo").get(sellerDashboardInfo);
+sellerRoutes.route("/dashboardRevenueInfo/:limit").get(sellerDashboardRevenueGraph);
 sellerRoutes.use("/wallet",sellerWalletAddressRoutes)
 
 export default sellerRoutes;

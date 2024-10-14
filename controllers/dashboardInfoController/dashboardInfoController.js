@@ -6,6 +6,7 @@ import PaymentToSeller from "#models/paymentToSellerModel/paymentToSellerModel.j
 import PaymentRecieve from "#models/paymentRecivedModel/paymentRecivedModel.js";
 import Order from "#models/orderModels/orderModel.js";
 import mongoose from "mongoose";
+import moment from "moment";
 
 const adminDashboardInfo = asyncHandler(async (req, res) => {
   try {
@@ -69,7 +70,7 @@ const sellerDashboardInfo = asyncHandler(async (req, res) => {
       paymentApprovalCount,
       totalEarningAmounts,
       allSalesData
-       
+
     ] = await Promise.all([
       PaymentToSeller.aggregate([
         {
@@ -98,8 +99,8 @@ const sellerDashboardInfo = asyncHandler(async (req, res) => {
                 $match: {
                   $expr: {
                     $and: [
-                      { $eq: ["$_id", "$$orderId"] }, 
-                     ...(req.query.earning !== "all" ? [{ $eq: ["$paymentMethod", req.query.earning] }] : []) 
+                      { $eq: ["$_id", "$$orderId"] },
+                      ...(req.query.earning !== "all" ? [{ $eq: ["$paymentMethod", req.query.earning] }] : [])
                     ]
                   }
                 }
@@ -113,8 +114,8 @@ const sellerDashboardInfo = asyncHandler(async (req, res) => {
         },
         {
           $group: {
-            _id: null,  
-            totalEarningAmount: { $sum: "$payments.subtotal" }  
+            _id: null,
+            totalEarningAmount: { $sum: "$payments.subtotal" }
           }
         }
       ]),
@@ -123,28 +124,28 @@ const sellerDashboardInfo = asyncHandler(async (req, res) => {
         {
           $match: {
             seller: mongoose.Types.ObjectId(id),
-            ...dateFilter 
+            ...dateFilter
           }
         },
         {
           $lookup: {
             from: "orders",
-            localField: "_id", 
-            foreignField: "store", 
-            as: "orders" 
+            localField: "_id",
+            foreignField: "store",
+            as: "orders"
           }
         },
         {
           $group: {
-            _id: "$_id", 
-            count: { $sum: 1 } 
+            _id: "$_id",
+            count: { $sum: 1 }
           }
         }
       ])
     ]);
 
     const responseData = {
-      totalOrderValue: totalEarningAmounts.length 
+      totalOrderValue: totalEarningAmounts.length
         ? Math.round(totalEarningAmounts[0].totalEarningAmount)
         : 0,
 
@@ -164,4 +165,220 @@ const sellerDashboardInfo = asyncHandler(async (req, res) => {
   }
 });
 
-export { adminDashboardInfo, sellerDashboardInfo };
+const sellerDashboardRevenueGraph = asyncHandler(async (req, res) => {
+  try {
+
+    const limit = req.params.limit;
+    // let startOfWeek1 = moment().startOf('week').local().set({ hour: 0, minute: 0, second: 0, millisecond: 0 }).toDate();
+    // let endOfWeek1 = moment().endOf('week').local().set({ hour: 23, minute: 59, second: 59, millisecond: 999 }).toDate();
+
+    // Get today's date
+    let today = moment('2024-10-07');
+    let startOfWeek = today.clone().day(6).startOf('day');
+
+    if (today.day() < 6) {
+      startOfWeek.subtract(1, 'weeks');
+    }
+    let endOfWeek = today.clone().day(5).endOf('day');
+
+    if (today.day() > 5) {
+      endOfWeek.add(1, 'weeks');
+    }
+
+    // console.log("Start of Week (Saturday):", startOfWeek.set({ hour: 0, minute: 0, second: 0, millisecond: 0 }).toDate());
+    // console.log("End of Week (Friday):", endOfWeek.set({ hour: 0, minute: 0, second: 0, millisecond: 0 }).toDate());
+
+    if (limit == "weekly") {
+      const result = await PaymentRecieve.aggregate([
+        {
+          $match: {
+            createdAt: {
+              $gte: startOfWeek.set({ hour: 0, minute: 0, second: 0, millisecond: 0 }).toDate(),
+              $lte: endOfWeek.set({ hour: 0, minute: 0, second: 0, millisecond: 0 }).toDate(),
+            },
+          },
+        },
+        {
+          $group: {
+            _id: { $dayOfWeek: "$createdAt" },
+            totalRevenue: { $sum: '$amount' },
+          },
+        },
+        {
+          $sort: { _id: 1 },
+        },
+      ]);
+
+      const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+      const response = daysOfWeek.map(day => {
+        const entry = result.find(item => item._id === daysOfWeek.indexOf(day) + 1) || { totalRevenue: 0 };
+        return { Day: day, totalRevenue: entry.totalRevenue };
+      });
+
+      return res.status(200).json({
+        status: 200,
+        data: response,
+      });
+    }
+    
+    if (limit == "yearly") {
+      const monthsArray = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ];
+      
+      const pipeline = [
+        {
+          $group: {
+            _id: { $month: '$createdAt' },
+            totalRevenue: { $sum: '$amount' },
+          },
+        },
+        {
+          $project: {
+            month: {
+              $arrayElemAt: [
+                monthsArray,
+                { $subtract: ['$_id', 1] }
+              ],
+            },
+            totalRevenue: 1,
+            _id: 0,
+          },
+        },
+        {
+          $sort: { _id: 1 }, 
+        },
+        {
+          $group: {
+            _id: null,
+            data: { $push: { month: '$month', totalRevenue: '$totalRevenue' } }
+          }
+        },
+        {
+          $project: {
+            _id: 0,
+            data: {
+              $setUnion: [
+                '$data',
+                {
+                  $map: {
+                    input: {
+                      $filter: {
+                        input: monthsArray,
+                        as: 'month',
+                        cond: { $not: { $in: ['$$month', '$data.month'] } }
+                      }
+                    },
+                    as: 'month',
+                    in: { month: '$$month', totalRevenue: 0 }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          $unwind: "$data" 
+        },
+        {
+          $addFields: {
+            sortIndex: { $indexOfArray: [monthsArray, "$data.month"] }
+          }
+        },
+        {
+          $sort: { sortIndex: 1 }
+        },
+        {
+          $group: {
+            _id: null,
+            data: { $push: "$data" } 
+          }
+        },
+        {
+          $project: {
+            _id: 0,
+            data: 1
+          }
+        }
+      ];
+    
+      try {
+        const result = await PaymentRecieve.aggregate(pipeline);
+        return res.status(200).json({
+          status: 200,
+          data: result.length > 0 ? result[0].data : [],
+        });
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    
+
+    if (limit == "monthly") {
+      const currentMonth = new Date().getMonth() + 1;
+      const currentYear = new Date().getFullYear();
+      const lastDayOfMonth = new Date(currentYear, currentMonth, 0).getDate();
+
+      const pipeline = [
+        {
+          $match: {
+            createdAt: {
+              $gte: new Date(currentYear, currentMonth - 1, 1),
+              $lte: new Date(currentYear, currentMonth - 1, lastDayOfMonth),
+            },
+          },
+        },
+        {
+          $group: {
+            _id: { $dayOfMonth: "$createdAt" },
+            totalRevenue: { $sum: '$amount' },
+          },
+        },
+        {
+          $project: {
+            day: "$_id",
+            totalRevenue: 1,
+            _id: 0,
+          },
+        },
+        {
+          $sort: { day: 1 },
+        },
+      ];
+
+
+      try {
+        const result = await PaymentRecieve.aggregate(pipeline);
+        const response = Array.from({ length: lastDayOfMonth }, (_, i) => {
+          const day = i + 1;
+          const entry = result.find((item) => item.day === day) || {
+            day,
+            totalRevenue: 0,
+          };
+          return { day: entry.day, totalRevenue: entry.totalRevenue };
+        });
+        return res.status(200).json({
+          status: 200,
+          // message: responeMessage.MONTHLY,
+          data: response,
+        });
+      } catch (error) {
+        return res.status(500).json({
+          status: 500,
+          message: "Internal Server Error",
+          error: error.message,
+        });
+      }
+
+    }
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error fetching data" });
+
+  }
+})
+
+export { adminDashboardInfo, sellerDashboardInfo, sellerDashboardRevenueGraph };

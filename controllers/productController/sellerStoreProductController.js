@@ -5,6 +5,7 @@ import { uploadObject } from "../../config/space.js";
 import ProductImage from "#models/productModel/productImageModel.js";
 import SellerStoreProductSize from "#models/productModel/sellerStoreProductSizeModel.js";
 import SellerRecommendation from "#models/productModel/upSellingProductModal.js";
+import ProductRequestModel from "#models/productModel/productRequest.js";
 
 async function ensureUniqueSlug(slug) {
   let uniqueSlug = slug;
@@ -172,4 +173,54 @@ const createApparel = asyncHandler(async (req, res) => {
   }
 });
 
-export { addSellerStoreProduct, createApparel };
+const productRequests = asyncHandler(async (req, res) => {
+
+  const { productDescription } = req.body;
+  try {
+    
+    // Create product request
+    const productRequest = await ProductRequestModel.create({
+      description:productDescription,
+      requestedBy : req.seller
+    });
+    res.status(201).json({ productRequest });
+
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching data" });
+
+  }
+
+
+
+
+});
+
+const getProductRequests = asyncHandler(async (req, res) => {
+  try {
+    // Create product request
+    const productRequest = await ProductRequestModel.find().sort({createdAt:-1});
+    res.status(200).json({ status:200,
+      message:"fetch product reqest successfully",
+      data:productRequest
+     });
+
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching data" });
+
+  }
+});
+
+const getProductRequestsById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const getProductRequest = await ProductRequestModel.findOne({ _id: id });
+  res.status(200).json(getProductRequest);
+});
+
+
+const updatedProduRequest = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const updatedProduRequest = await ProductRequestModel.findByIdAndUpdate({ _id: id }, {description:req.body.productDescription});
+  res.status(200).json(updatedProduRequest);
+});
+
+export { addSellerStoreProduct, createApparel, productRequests, getProductRequests, getProductRequestsById, updatedProduRequest };

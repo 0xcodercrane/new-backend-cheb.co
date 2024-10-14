@@ -19,6 +19,10 @@ const productSchema = Schema(
       type: String,
       required: [true, "Please Add Sku"],
     },
+    category:{
+      type: String,
+      require:false,
+    },
     // retailCost: {
     //   type: Number,
     //   // required: [true, 'Please Add retailCost']

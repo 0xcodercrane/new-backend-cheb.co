@@ -55,80 +55,429 @@ const createSellerStoreProduct = asyncHandler(async (req, res) => {
   res.status(201).json(sellerStoreProduct);
 });
 
+// const getAllSellerStoreProduct = asyncHandler(async (req, res) => {
+//   const { search, type } = req.query;
+
+//   console.log("61 calling")
+
+//   let matchStage = {};
+
+//   if (type) {
+//     matchStage.type = type;
+//   }
+
+//   try {
+//     const products = await SellerStoreProduct.aggregate([
+//       {
+//         $match: matchStage,
+//       },
+//       {
+//         $lookup: {
+//           from: "products",
+//           localField: "product",
+//           foreignField: "_id",
+//           as: "product",
+//         },
+//       },
+//       {
+//         $unwind: "$product",
+//       },
+//       {
+//         $lookup: {
+//           from: "sellerstores",
+//           localField: "sellerStore",
+//           foreignField: "_id",
+//           as: "sellerStore",
+//         },
+//       },
+//       {
+//         $unwind: "$sellerStore",
+//       },
+
+//       // Add the search-related $match stage after the $lookup stages
+//       {
+//         $match: {
+//           ...(search?.trim() && {
+//             "product.name": { $regex: new RegExp(search.trim(), "i") },
+//           }),
+//         },
+//       },
+//       // Add other stages if necessary
+//     ]).sort({ createdAt: -1 });
+
+//     const seenProducts = new Set();
+
+//     const uniqueProducts = products.filter((product) => {
+//       const productId = product.product._id.toString();
+//       if (seenProducts.has(productId)) {
+//         return false;
+//       }
+//       seenProducts.add(productId);
+//       return true;
+//     });
+
+//     const activeProducts = uniqueProducts.filter(
+//       (product) => !product.product.isArchive
+//     );
+
+//     // console.log(activeProducts, "activeProducts");
+//     res.status(200).json(activeProducts);
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({ message: "Error fetching products" });
+//   }
+// });
+
 const getAllSellerStoreProduct = asyncHandler(async (req, res) => {
-  const { search, type } = req.query;
-
-  let matchStage = {};
-
-  if (type) {
-    matchStage.type = type;
-  }
-
   try {
-    const products = await SellerStoreProduct.aggregate([
-      {
-        $match: matchStage,
-      },
-      {
-        $lookup: {
-          from: "products",
-          localField: "product",
-          foreignField: "_id",
-          as: "product",
+    const { brand, gender, color, minPrice, maxPrice, condition, size, apparelSizes, search, type, category } = req.query;
+
+    const brandArray = Array.isArray(brand) ? brand : (brand ? JSON.parse(brand) : []);
+    const conditionArray = Array.isArray(condition) ? condition : (condition ? JSON.parse(condition) : []);
+    const sizeArray = Array.isArray(size) ? size : (size ? JSON.parse(size) : []);
+    const apparelSizeArray = Array.isArray(apparelSizes) ? apparelSizes : (apparelSizes ? JSON.parse(apparelSizes) : []);
+    const colorsArray = Array.isArray(color) ? color : (color ? JSON.parse(color) : []);
+
+    // Fetch latest non-archived stores
+    const stores = await SellerStore.find({ isArchive: false })
+      .sort({ createdAt: -1 })
+
+    const storeIds = stores.map(store => store._id);
+
+
+    // Helper function to fetch products based on type
+    // const fetchProducts = async (type) => {
+    //   const matchStage = {
+    //     isActive: true,
+    //     sellerStore: { $in: storeIds },
+    //     ...(type && { type }),
+    //     ...(search && {
+    //       "productDetails.name": { $regex: new RegExp(search.trim(), 'i') }
+    //     }),
+    //   };
+    
+    //   return await SellerStoreProduct.aggregate([
+    //     { $match: matchStage },
+    //     {
+    //       $lookup: {
+    //         from: "products",
+    //         localField: "product",
+    //         foreignField: "_id",
+    //         as: "productDetails",
+    //       },
+    //     },
+    //     { $unwind: "$productDetails" },
+    //     { $match: { "productDetails.isArchive": false } },
+    //     {
+    //       $addFields: {
+    //         "productDetails.colorWay": {
+    //           $filter: {
+    //             input: "$productDetails.colorWay",
+    //             as: "colorId",
+    //             cond: {
+    //               $and: [
+    //                 { $eq: [{ $type: "$$colorId" }, "string"] },
+    //                 { $eq: [{ $strLenCP: "$$colorId" }, 24] }, // Ensure valid ObjectId length
+    //               ],
+    //             },
+    //           },
+    //         },
+    //       },
+    //     },
+    //     {
+    //       $addFields: {
+    //         "productDetails.colorWay": {
+    //           $map: {
+    //             input: "$productDetails.colorWay",
+    //             as: "colorId",
+    //             in: { $toObjectId: "$$colorId" }, // Convert to ObjectId
+    //           },
+    //         },
+    //       },
+    //     },
+    //     {
+    //       $lookup: {
+    //         from: "colors",
+    //         localField: "productDetails.colorWay",
+    //         foreignField: "_id",
+    //         as: "colorInfo",
+    //       },
+    //     },
+    //     {
+    //       $lookup: {
+    //         from: "sellerstoreproductsizes",
+    //         localField: "_id",
+    //         foreignField: "sellerStoreProduct",
+    //         as: "sizeDetails",
+    //       },
+    //     },
+    //     { $unwind: "$sizeDetails" },
+    //     {
+    //       $lookup: {
+    //         from: "sizes",
+    //         localField: "sizeDetails.size",
+    //         foreignField: "_id",
+    //         as: "sizeInfo",
+    //       },
+    //     },
+    //     { $unwind: "$sizeInfo" },
+    //     {
+    //       $match: {
+    //         ...(gender && { "sizeDetails.gender": { $regex: new RegExp(gender, 'i') } }),
+    //         ...(minPrice || maxPrice ? {
+    //           "productDetails.retailCost": {
+    //             ...(minPrice && { $gte: Number(minPrice) }),
+    //             ...(maxPrice && { $lte: Number(maxPrice) }),
+    //           },
+    //         } : {}),
+    //         ...(brandArray.length > 0 && {
+    //           $and: brandArray.map(b => ({
+    //             "productDetails.name": { $regex: new RegExp(b, 'i') },
+    //           })),
+    //         }),
+    //         ...(conditionArray.length > 0 && {
+    //           $and: conditionArray.map(con => ({
+    //             "sizeDetails.productCondition": { $regex: new RegExp(con, 'i') },
+    //           })),
+    //         }),
+    //         ...(sizeArray.length > 0 || apparelSizeArray.length > 0 ? {
+    //           $or: [
+    //             ...(sizeArray.length > 0
+    //               ? sizeArray.map(s => ({
+    //                 "sizeInfo.name": { $regex: new RegExp(s, 'i') },
+    //               }))
+    //               : []),
+    //             ...(apparelSizeArray.length > 0
+    //               ? apparelSizeArray.map(a => ({
+    //                 "sizeInfo.name": { $regex: new RegExp(a, 'i') },
+    //               }))
+    //               : []),
+    //           ],
+    //         } : {}),
+    //         ...(colorsArray.length > 0 && {
+    //           $or: colorsArray.map(c => ({
+    //             "productDetails.colorInfo.name": { $regex: new RegExp(c, 'i') },
+    //           })),
+    //         }),
+    //       },
+    //     },
+    //     {
+    //       $group: {
+    //         _id: "$productDetails._id",
+    //         sellerStore: { $first: "$sellerStore" },
+    //         productDetails: { $first: "$productDetails" },
+    //         sizes: { $push: "$sizeInfo" },
+    //         productConditions: { $push: "$sizeDetails.productCondition" },
+    //         colorInfo: { $first: "$productDetails.colorInfo" },
+    //         name: { $first: '$productDetails.name' },
+    //         cardImage: { $first: '$productDetails.cardImage' }
+    //       },
+    //     },
+    //     // Add this lookup to populate the sellerStore details
+    //     {
+    //       $lookup: {
+    //         from: "sellerstores", // The name of your seller stores collection
+    //         localField: "sellerStore",
+    //         foreignField: "_id",
+    //         as: "sellerStoreDetails",
+    //       },
+    //     },
+    //     { $unwind: "$sellerStoreDetails" }, // Unwind to make it a single document
+    //     {
+    //       $replaceRoot: {
+    //         newRoot: {
+    //           sellerStore: "$sellerStoreDetails",
+    //           product: "$productDetails",
+    //           sizes: "$sizes",
+    //           productConditions: "$productConditions",
+    //           colorInfo: "$colorInfo",
+    //           name: "$name",
+    //           cardImage: "$cardImage"
+    //         }
+    //       }
+    //     },
+    //     { $sort: { createdAt: -1 } },
+    //   ]);
+    // };
+
+    const fetchProducts = async (type) => {
+      const matchStage = {
+        isActive: true,
+        sellerStore: { $in: storeIds },
+        ...(type && { type }),
+        ...(search && {
+          "productDetails.name": { $regex: new RegExp(search.trim(), 'i') }
+        }),
+      };
+    
+      return await SellerStoreProduct.aggregate([
+        { $match: matchStage },
+        {
+          $lookup: {
+            from: "products",
+            localField: "product",
+            foreignField: "_id",
+            as: "productDetails",
+          },
         },
-      },
-      {
-        $unwind: "$product",
-      },
-      {
-        $lookup: {
-          from: "sellerstores",
-          localField: "sellerStore",
-          foreignField: "_id",
-          as: "sellerStore",
+        { $unwind: "$productDetails" },
+        { $match: { "productDetails.isArchive": false } },
+        {
+          $addFields: {
+            "productDetails.colorWay": {
+              $filter: {
+                input: "$productDetails.colorWay",
+                as: "colorId",
+                cond: {
+                  $and: [
+                    { $eq: [{ $type: "$$colorId" }, "string"] },
+                    { $eq: [{ $strLenCP: "$$colorId" }, 24] }, // Ensure valid ObjectId length
+                  ],
+                },
+              },
+            },
+          },
         },
-      },
-      {
-        $unwind: "$sellerStore",
-      },
-
-      // Add the search-related $match stage after the $lookup stages
-      {
-        $match: {
-          ...(search?.trim() && {
-            "product.name": { $regex: new RegExp(search.trim(), "i") },
-          }),
+        {
+          $addFields: {
+            "productDetails.colorWay": {
+              $map: {
+                input: "$productDetails.colorWay",
+                as: "colorId",
+                in: { $toObjectId: "$$colorId" }, // Convert to ObjectId
+              },
+            },
+          },
         },
-      },
-      // Add other stages if necessary
-    ]).sort({ createdAt: -1 });
+        {
+          $lookup: {
+            from: "colors",
+            localField: "productDetails.colorWay",
+            foreignField: "_id",
+            as: "colorInfo",
+          },
+        },
+        {
+          $lookup: {
+            from: "sellerstoreproductsizes",
+            localField: "_id",
+            foreignField: "sellerStoreProduct",
+            as: "sizeDetails",
+          },
+        },
+        { $unwind: "$sizeDetails" },
+        {
+          $lookup: {
+            from: "sizes",
+            localField: "sizeDetails.size",
+            foreignField: "_id",
+            as: "sizeInfo",
+          },
+        },
+        { $unwind: "$sizeInfo" },
+        {
+          $match: {
+            ...(gender && { "sizeDetails.gender": { $regex: new RegExp(gender, 'i') } }),
+            ...(category && { "productDetails.category": { $regex: new RegExp(category, 'i') } }),
+            ...(minPrice || maxPrice ? {
+              "productDetails.retailCost": {
+                ...(minPrice && { $gte: Number(minPrice) }),
+                ...(maxPrice && { $lte: Number(maxPrice) }),
+              },
+            } : {}),
+            ...(brandArray.length > 0 && {
+              $and: brandArray.map(b => ({
+                "productDetails.name": { $regex: new RegExp(b, 'i') },
+              })),
+            }),
+            ...(conditionArray.length > 0 && {
+              $and: conditionArray.map(con => ({
+                "sizeDetails.productCondition": { $regex: new RegExp(con, 'i') },
+              })),
+            }),
+            ...(sizeArray.length > 0 || apparelSizeArray.length > 0 ? {
+              $or: [
+                ...(sizeArray.length > 0
+                  ? sizeArray.map(s => ({
+                    "sizeInfo.name": { $regex: new RegExp(s, 'i') },
+                  }))
+                  : []),
+                ...(apparelSizeArray.length > 0
+                  ? apparelSizeArray.map(a => ({
+                    "sizeInfo.name": { $regex: new RegExp(a, 'i') },
+                  }))
+                  : []),
+              ],
+            } : {}),
+            ...(colorsArray.length > 0 && {
+              $or: colorsArray.map(c => ({
+                "colorInfo.name": { $regex: new RegExp(c, 'i') },
+              })),
+            }),
+          },
+        },
+        {
+          $group: {
+            _id: "$productDetails._id",
+            sellerStore: { $first: "$sellerStore" },
+            productDetails: { $first: "$productDetails" },
+            sizes: { $push: "$sizeInfo" },
+            productConditions: { $push: "$sizeDetails.productCondition" },
+            colorInfo: { $push: "$colorInfo" }, // Ensure colorInfo is an array
+            name: { $first: '$productDetails.name' },
+            cardImage: { $first: '$productDetails.cardImage' }
+          },
+        },
+        // Add this lookup to populate the sellerStore details
+        {
+          $lookup: {
+            from: "sellerstores", // The name of your seller stores collection
+            localField: "sellerStore",
+            foreignField: "_id",
+            as: "sellerStoreDetails",
+          },
+        },
+        { $unwind: "$sellerStoreDetails" }, // Unwind to make it a single document
+        {
+          $replaceRoot: {
+            newRoot: {
+              sellerStore: "$sellerStoreDetails",
+              product: "$productDetails",
+              sizes: "$sizes",
+              productConditions: "$productConditions",
+              colorInfo: "$colorInfo",
+              name: "$name",
+              cardImage: "$cardImage"
+            }
+          }
+        },
+        { $sort: { createdAt: -1 } },
+      ]);
+    };
+    
+    
 
-    const seenProducts = new Set();
+    // Fetch sneakers and apparel products
+    const [allProducts] = await Promise.all([
+      type ? fetchProducts(type) : fetchProducts()
+    ]);  
 
-    const uniqueProducts = products.filter((product) => {
-      const productId = product.product._id.toString();
-      if (seenProducts.has(productId)) {
-        return false;
-      }
-      seenProducts.add(productId);
-      return true;
-    });
-
-    const activeProducts = uniqueProducts.filter(
-      (product) => !product.product.isArchive
-    );
-
-    // console.log(activeProducts, "activeProducts");
-    res.status(200).json(activeProducts);
-  } catch (error) {
+    res.status(200).json(allProducts);
+  }
+  catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error fetching products" });
   }
+
 });
+
+
 
 const getSellerStoreProducts = asyncHandler(async (req, res) => {
   const { filter, search } = req.query;
   const query = {};
+
+  console.log("this end point calling");
 
   console.log(search);
 
