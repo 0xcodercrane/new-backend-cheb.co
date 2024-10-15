@@ -30,11 +30,13 @@ const registerCustomer = asyncHandler(async (req, res) => {
     //Employee Email Present Or Not
     const emailExistsCustomer = await Customer.findOne({ email });
 
-    console.log("emailExistsCustomer", emailExistsCustomer)
 
     if (emailExistsCustomer) {
-      res.status(400);
-      throw new Error("Customer Exists");
+      return res.status(400).json({
+        status: 400,
+        message: "Customer Already Exists",
+        data: [],
+      });
     }
 
     // console.log("dp", Object.keys(dp).length > 0 )
@@ -89,7 +91,7 @@ const registerCustomer = asyncHandler(async (req, res) => {
         isVerified: customer.isVerified,
         dp: customer?.dp,
         token,
-        isProductInCart:false
+        isProductInCart: false
       });
     }
     else if (isProductInCart && customer) {
@@ -99,7 +101,7 @@ const registerCustomer = asyncHandler(async (req, res) => {
         name: customer.name,
         email: customer.email,
         token,
-        isProductInCart:true
+        isProductInCart: true
       });
     }
     else {
