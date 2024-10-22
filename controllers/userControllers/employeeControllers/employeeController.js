@@ -121,8 +121,7 @@ const getAllEmployees = asyncHandler(async (req, res) => {
         query.isArchive = false;
     }
 
-    const employees = await Employee.find(query);
-    console.log("employee is", employees)
+    const employees = await Employee.find(query).select('-password -token -fcmtoken');
     res.status(200).json(employees);
 });
 
@@ -151,29 +150,12 @@ const deleteEmployee = asyncHandler(async (req, res) => {
 
 
 const archiveEmployee = asyncHandler(async (req, res) => {
-    const { id } = req.params;
-
-    // const token = req.headers.authorization && req.headers.authorization.split(' ')[1];
-    // const decoded = verify(token, process.env.JWT_SECRET)
-
-    const employee = await Employee.findOne({ _id: req.employee._id })
-
-    if (!employee) {
-        res.status(400);
-        throw new Error("Employee not found")
-    }
-
-    if (!employee.level === "admin") {
-        res.status(400);
-        throw new Error("Employee is not admin")
-    }
-
-    await Employee.findByIdAndUpdate(id, {
-        ...req.body,
-    });
-
-    const updateEmployee = await Employee.findById(id)
-    res.status(200).json(updateEmployee)
+    const updateData = { ...req.body };
+    const [employee, seller] = await Promise.all([
+        Employee.findByIdAndUpdate(req.params.id, updateData, { new: true }).select('-password -token -fcmtoken'),
+        Seller.findByIdAndUpdate(req.params.id, updateData, { new: true }).select('-password -token -fcmtoken')
+    ]);
+    res.status(200).json(employee ? employee : seller);
 })
 
 //  customers

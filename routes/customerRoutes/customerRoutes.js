@@ -114,6 +114,12 @@ customerRoutes.use("/order", protectForCustomer, orderRoutes);
 customerRoutes.use("/payment-intent", paymentRoutes);
 customerRoutes.use("/home", homeRoutes);
 
+
+
+
+
+
+
 customerRoutes.use("/getSellerRecommendation/:id", getSellerRecommendation);
 customerRoutes.use("/getBoughtTogether/:id", getBoughtTogether);
 customerRoutes.use(
@@ -122,5 +128,8 @@ customerRoutes.use(
   pendingCryptoOrderRoutes
 );
 customerRoutes.use("/pendingCrypto", pendingCryptoOrderRoutes);
+
+
+
 // Export
 export default customerRoutes;

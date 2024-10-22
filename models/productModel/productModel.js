@@ -19,6 +19,10 @@ const productSchema = Schema(
       type: String,
       required: [true, "Please Add Sku"],
     },
+    product_AliasId:{
+      type: String,
+      required:false,
+    },
     category:{
       type: String,
       require:false,

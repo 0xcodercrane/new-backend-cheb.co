@@ -39,6 +39,10 @@ const sellerSchema = Schema(
       type: Boolean,
       default: false,
     },
+    isArchive:{
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

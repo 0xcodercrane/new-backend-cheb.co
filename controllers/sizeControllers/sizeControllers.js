@@ -3,12 +3,16 @@ import Size from "#models/sizeModel/sizeModel.js";
 import mongoose from "mongoose";
 
 const addSize = asyncHandler(async (req, res) => {
-  const { name, precedence, type, gender } = req.body;
+  const { name, precedence, type, gender, length, width, height, weight } = req.body;
   const size = await Size.create({
     name,
     precedence,
     type,
     gender,
+    length,
+    width,
+    height,
+    weight
   });
 
   res.status(200).json(size);
@@ -23,15 +27,15 @@ const getAllSize = asyncHandler(async (req, res) => {
   } else if (filter === "active") {
     query.isArchive = false;
   }
-
-  const sizes = await Size.find(query).sort({ precedence: 1 });
+  const sizes = await Size.find(query).sort({ createdAt: -1 })
+  console.log("Sizes: ", sizes);
   res.status(200).json(sizes);
 });
-
+  
 const getAllSizeByType = asyncHandler(async (req, res) => {
   const { type } = req.params;
   const sizes = await Size.find({ type, isArchive: false }).sort({
-    precedence: 1,
+    createdAt: -1,
   });
 
   console.log(sizes);

@@ -30,6 +30,14 @@ const customerSchema = Schema({
     dob: {
         type: Date
     },
+    otp :{
+        type : String,
+        default : null
+    },
+    isOtpVerified:{
+        type : Boolean,
+        default : false
+    },
     isVerified : {
         type : Boolean,
         default : false

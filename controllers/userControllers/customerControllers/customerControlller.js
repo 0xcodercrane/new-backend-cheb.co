@@ -8,6 +8,12 @@ import { generateToken } from '#utils/helperFunction.js';
 import { uploadObject } from '#config/space.js';
 import { sendCustomerVerifyEmail } from '#config/email/emailFormats/sendCustomerVerifyEmail.js';
 import { sendForgotPasswordMail } from '#config/email/emailFormats/sendClientContactForgotPasswordMail.js';
+import { StatusCodes } from 'http-status-codes';
+import { ResponseMessage } from '#controllers/utils/ResponseMessage.js';
+import { sendSellerOTPVerifyEmail } from '#config/email/emailFormats/sendOtpToSeller.js';
+import { generateOtp } from '#utils/helperFunction.js';
+import moment from "moment";
+
 
 
 const { genSalt, hash, compare } = bcrypt
@@ -29,12 +35,13 @@ const registerCustomer = asyncHandler(async (req, res) => {
 
     //Employee Email Present Or Not
     const emailExistsCustomer = await Customer.findOne({ email });
+    const mobileExistsCustomer = await Customer.findOne({ mobile });
 
 
-    if (emailExistsCustomer) {
+    if (emailExistsCustomer || mobileExistsCustomer) {
       return res.status(400).json({
         status: 400,
-        message: "Customer Already Exists",
+        message: emailExistsCustomer ? "Customer Email Already Exists" : "Mobile Number Already Exists",
         data: [],
       });
     }
@@ -69,12 +76,10 @@ const registerCustomer = asyncHandler(async (req, res) => {
     });
 
 
-    console.log("isProductInCart", !isProductInCart && customer)
-
-    // return false;
-
+    
+    // !isProductInCart && customer
+    const token = generateToken(customer._id);
     if (!isProductInCart && customer) {
-      const token = generateToken(customer._id);
 
       const link = process.env.CONSUMER_APP_LINK + "verifyEmail/" + token;
 
@@ -94,8 +99,19 @@ const registerCustomer = asyncHandler(async (req, res) => {
         isProductInCart: false
       });
     }
+    // 
     else if (isProductInCart && customer) {
-      const token = generateToken(customer._id);
+      const OTP = generateOtp();
+      const description =
+        `We have received a request to verify your email address for your seller account. Please use the following OTP to complete your email verification.`;
+      await Customer.findOneAndUpdate(
+        { email: customer.email },
+        { otp: OTP },
+        { new: true }
+      );
+
+      await sendSellerOTPVerifyEmail(customer.email, OTP, description, customer.name);
+
       res.status(201).json({
         _id: customer.id,
         name: customer.name,
@@ -112,11 +128,92 @@ const registerCustomer = asyncHandler(async (req, res) => {
   } catch (error) {
     console.error("Error during customer registration", error);
     res.status(500).json({ message: "Server Error" });
+  }
+});
+
+
+export const verifyCustomerOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    const user = await Customer.findOne({ email });
+    if (!user) {
+      return res.status(StatusCodes.NOT_FOUND).json({
+        message: ResponseMessage.USER_NOT_EXIST,
+        data: [],
+      });
+    }
+
+    if (user.otp !== otp) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        message: ResponseMessage.INVALID_OTP,
+        data: [],
+      });
+    }
+
+    const expirationTime = moment(user.updatedAt).add(5, 'minutes');
+    if (moment().isBefore(expirationTime)) {
+      const updatedUser = await Customer.findOneAndUpdate(
+        { email },
+        { otp: null, isOtpVerified: true },
+        { new: true }
+      ).select('-password');
+
+      return res.status(StatusCodes.OK).json({
+        message: ResponseMessage.VERIFICATION_COMPLETED,
+        data: updatedUser,
+      });
+    }
+
+    return res.status(StatusCodes.BAD_REQUEST).json({
+      message: ResponseMessage.OTP_EXPIRED,
+      data: [],
+    });
+  } catch (err) {
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      message: ResponseMessage.INTERNAL_SERVER_ERROR,
+      data: err.message,
+    });
+  }
+};
+
+export const resendCustomerOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await Customer.findOne({ email });
+
+    if (!user) {
+      return res.status(StatusCodes.NOT_FOUND).json({
+        message: ResponseMessage.USER_NOT_EXIST,
+        data: [],
+      });
+    }
+    const OTP = generateOtp();
+    const description =
+      `We have received a request to verify your email address for your CheB account. Please use the following OTP to complete your email verification.`;
+
+    await sendSellerOTPVerifyEmail(user.email, OTP, description);
+
+    await Customer.findOneAndUpdate(
+      { email },
+      { otp: OTP },
+      { new: true }
+    );
+
+    return res.status(StatusCodes.OK).json({
+      message: ResponseMessage.OTP_RESENT,
+      data: [],
+    });
+  }
+  catch (error) {
+    return {
+      status: StatusCodes.BAD_REQUEST,
+      message: ResponseMessage.SOMETHING_WENT_WRONG,
+      data: error.message,
+    };
 
   }
-
-
-});
+}
 
 
 

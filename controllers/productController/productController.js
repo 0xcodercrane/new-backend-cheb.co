@@ -33,6 +33,7 @@ const setProduct = asyncHandler(async (req, res) => {
       slug: initialSlug,
       category,
       sku,
+      product_AliasId,
       description,
       colorWay,
       cardImage,
@@ -92,6 +93,7 @@ const setProduct = asyncHandler(async (req, res) => {
       description,
       cardImage: cardImageUrl,
       type,
+      product_AliasId,
       colorWay,
     });
 

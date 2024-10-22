@@ -6,6 +6,24 @@ const sizeSchema = Schema({
         type: String,
         required: [true, 'Please Add Name']
     },
+    length:{
+        type: Number,
+        required: [true, 'Please Add length']
+
+    },
+    width:{
+        type: Number,
+        required: [true, 'Please Add width']
+    },
+    height:{
+        type: Number,
+        required: [true, 'Please Add height']
+
+    },
+    weight:{
+        type: Number,
+        required: [true, 'Please Add Weight']
+    },
     type: {
         type: String,
         enum: ["sneaker", "apparel"],
@@ -18,7 +36,8 @@ const sizeSchema = Schema({
     },
     precedence: {
         type: Number,
-        required: [true, "Please Add Precedence"]
+        required:false,
+        // required: [fal, "Please Add Precedence"]
     },
     isArchive: {
         type: Boolean,
