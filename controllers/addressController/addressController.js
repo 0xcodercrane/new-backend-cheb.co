@@ -115,58 +115,71 @@ export const getCarrierCharge = asyncHandler(async (req, res) => {
     try {
         const { city, state, storeId, street, zipCode } = req.body;
 
+        let totalHeight = 0;
+        let totalWeight = 0;
+        let totalLength = 0;
+        let totalWidth = 0;
+
+        req.body.cart.forEach((cartItem) => {
+            totalHeight += cartItem.height || 0;
+            totalWeight += cartItem.weight || 0;
+            totalLength += cartItem.length || 0;
+            totalWidth += cartItem.width || 0;
+
+        });
+
         let findStoreData = await sellerStoreModel.findOne({ _id: storeId })
         let findCustomerInfo = await Customer.findOne({ _id: req.customer })
 
-        // return false;
 
         let data = JSON.stringify({
             shipment: {
                 to_address: {
-                    name: "Dr. Steve Brule",
+                    name: findCustomerInfo?.name,
                     street1: street,
                     city: city,
                     state: state,
                     zip: zipCode,
                     // country: "US",
                     // phone: "8573875756",
-                    email: findCustomerInfo.email
+                    email: findCustomerInfo?.email
                 },
                 from_address: {
                     name: "EasyPost",
-                    street1: findStoreData.street,
-                    street2: findStoreData.stree,
-                    city: findStoreData.city,
-                    state: findStoreData.state,
-                    zip: findStoreData.zipCode,
+                    street1: findStoreData?.street,
+                    street2: findStoreData?.stree,
+                    city: findStoreData?.city,
+                    state: findStoreData?.state,
+                    zip: findStoreData?.zipCode,
                     // country: findStoreData,
-                    phone: findStoreData.mobile,
-                    email: findStoreData.email
+                    phone: findStoreData?.mobile,
+                    email: findStoreData?.email
                 },
                 parcel: {
-                    length: "20.2",
-                    width: "10.9",
-                    height: "5",
-                    weight: "65.9"
+                    length: totalLength,
+                    width: totalWidth,
+                    height: totalHeight,
+                    weight: totalWeight
                 },
-                carrier_account_id: "ca_0594c71bc7b1482198e8c6d71d23c792"
             }
         });
+
+
         let config = {
             method: 'post',
             maxBodyLength: Infinity,
-            url: 'https://api.easypost.com/v2/shipments',
+            url: `${process.env.EASY_POST_BASE_URL}/beta/rates`,
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': 'Bearer EZTKe5d678be09e3473f887e5bc7091e9a46Y0fuSBk01h2haswJOVpTag'
+                'Authorization': `Bearer ${process.env.EASY_POST_API_KEY}`
             },
             data: data
         };
 
+        console.log("config",config)
+
         let response = await axios.request(config);
         const filteredRates = response.data.rates.filter(rate => rate.delivery_date !== null);
-
-        console.log("response",config)
 
         const lowestRate = filteredRates.reduce((prev, curr) => {
             return parseFloat(curr.rate) < parseFloat(prev.rate) ? curr : prev;
@@ -174,10 +187,8 @@ export const getCarrierCharge = asyncHandler(async (req, res) => {
 
         return res.status(StatusCodes.OK).json({
             data: lowestRate,
-            response: response.data.rates
         });
     } catch (err) {
-        console.log("err",err)
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
             message: ResponseMessage.INTERNAL_SERVER_ERROR,
             data: err.message,

@@ -54,7 +54,7 @@ const getAllSizeByTypeAndGender = asyncHandler(async (req, res) => {
   if (search) {
     query.name = { $regex: new RegExp(search, "i") }; // Case-insensitive search by product name
   }
-  const sizes = await Size.find(query);
+  const sizes = await Size.find(query).sort({ createdAt: -1 });
   res.status(200).json(sizes);
 });
 

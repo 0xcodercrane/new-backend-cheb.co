@@ -468,6 +468,9 @@ const createMobileOrder = asyncHandler(async (req, res) => {
 
 // Create Order
 const createOrderByStripePayment = asyncHandler(async (req, res) => {
+
+
+
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
   const { session_id } = req.query;
@@ -506,6 +509,10 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
     pickupDate,
     pickupTime,
   } = orderData;
+
+  console.log("calling createOrderByStripePayment", orderData);
+
+
 
   const newOderData = {
     // purchasePrice,
@@ -558,10 +565,71 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
 
   // const additionalCharges = Math.round(processingFee + shippingFee + authenticationFee + tax - discount)
 
-  const customerAddress = await Address.findOne({ _id: orderData.address });
+  const customerAddress = await Address.findOne({ _id: orderData?.address });
+  let findCustomerInfo = await Customer.findOne({ _id: customerAddress?.customer })
   const storeInfo = await SellerStore.findOne({ _id: store });
 
-  // console.log("Store Info", storeInfo);
+
+  //Shipping Create By EasyPost 
+  let totalHeight = 0;
+  let totalWeight = 0;
+  let totalLength = 0;
+  let totalWidth = 0;
+
+  orderData.cartItems.forEach((cartItem) => {
+    totalHeight += cartItem.sizeData.height || 0;
+    totalWeight += cartItem.sizeData.weight || 0;
+    totalLength += cartItem.sizeData.length || 0;
+    totalWidth += cartItem.sizeData.width || 0;
+
+  });
+
+
+  let data = JSON.stringify({
+    shipment: {
+      to_address: {
+        name: findCustomerInfo?.name,
+        street1: customerAddress.street,
+        city: customerAddress.city,
+        state: customerAddress.state,
+        zip: customerAddress.zipCode,
+        // country: "US",
+        // phone: "8573875756",
+        email: findCustomerInfo?.email
+      },
+      from_address: {
+        name: "EasyPost",
+        street1: storeInfo?.street,
+        street2: storeInfo?.stree,
+        city: storeInfo?.city,
+        state: storeInfo?.state,
+        zip: storeInfo?.zipCode,
+        // country: storeInfo,
+        phone: storeInfo?.mobile,
+        email: storeInfo?.email
+      },
+      parcel: {
+        length: totalLength,
+        width: totalWidth,
+        height: totalHeight,
+        weight: totalWeight
+      },
+    }
+  });
+  let config = {
+    method: 'post',
+    maxBodyLength: Infinity,
+    url: `${process.env.EASY_POST_BASE_URL}/${process.env.EASY_POST_API_VERSION}/shipments`,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.EASY_POST_API_KEY}`
+    },
+    data: data
+  };
+
+  let response = await axios.request(config);
+
+  console.log("EasyPost response", response.data);
 
   await sendPaymentInfoEmail(customerInfo?.email, customerInfo, cartItems, {
     // processingFee,
@@ -790,7 +858,7 @@ const getCustomerStripeId = asyncHandler(async (req, res) => {
 });
 
 const dispatchStripeSaveCard = asyncHandler(async (req, res) => {
-  
+
   const id = req.params.id;
   console.log(id);
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
