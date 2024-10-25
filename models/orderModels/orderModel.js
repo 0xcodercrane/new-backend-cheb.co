@@ -1,3 +1,4 @@
+import { Type } from '@aws-sdk/client-s3';
 import mongoose from 'mongoose';
 const { Schema, model } = mongoose;
 
@@ -50,6 +51,18 @@ const orderSchema = Schema(
       required: false,
       min: [0, 'Price Amounts must have a minimum value of 0'],
     },
+    shipmentId :{
+      Type:String      
+    },
+    trackingId :{
+      Type:String      
+    },
+
+    trackingUrl :{
+      Type:String      
+    },
+
+
     // authenticationFee: {
     //   type: Number,
     //   required: true,

@@ -90,6 +90,7 @@ customerRoutes
 customerRoutes
   .route("/getMyOrdersByStatus/:orderStatus")
   .get(protectForCustomer, getMyOrdersByStatus);
+
 customerRoutes
   .route("/getMySingleOrder/:id")
   .get(protectForCustomer, getMySingleOrder);

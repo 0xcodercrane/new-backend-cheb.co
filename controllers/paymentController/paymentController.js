@@ -14,6 +14,7 @@ import { orderEmailToSeller } from '../../config/email/emailFormats/orderEmailTo
 import Seller from '#models/userModels/sellerModel/sellerModel.js';
 import SellerStoreProductSize from '#models/productModel/sellerStoreProductSizeModel.js';
 import SellerStore from '#models/userModels/sellerModel/sellerStoreModel/sellerStoreModel.js';
+import axios from 'axios';
 
 const paymentIntent = asyncHandler(async (req, res) => {
   globals.unset('orderData');
@@ -469,233 +470,270 @@ const createMobileOrder = asyncHandler(async (req, res) => {
 // Create Order
 const createOrderByStripePayment = asyncHandler(async (req, res) => {
 
+  try {
+
+    console.log('Step 1: Fetching customer and seller information', req.que);
+
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+    const { session_id } = req.query;
+
+    // Fetch the session object from Stripe using session ID
+    const session = await stripe.checkout.sessions.retrieve(session_id);
+
+    // Extract transaction ID from the session object
+    const paymentIntentId = session.payment_intent;
+
+    // Retrieve the payment intent object from Stripe using paymentIntentId
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+    // Extract transaction ID from payment intent object
+    const transactionId = paymentIntent.id;
+
+    // Now you have the transaction ID, you can use it for further processing
+    // console.log("Transaction ID:", transactionId);
+
+    const orderData = globals.get('orderData');
+    const {
+      // purchasePrice,
+      // processingFee,
+      // authenticationFee,
+      shippingFee,
+      tax,
+      // discount,
+      // deliveryFee,
+      subtotal,
+      total,
+      cartItems,
+      store,
+      customer,
+      seller,
+      selectedOption,
+      pickupDate,
+      pickupTime,
+    } = orderData;
+
+    console.log("calling createOrderByStripePayment", orderData);
 
 
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-  const { session_id } = req.query;
-
-  // Fetch the session object from Stripe using session ID
-  const session = await stripe.checkout.sessions.retrieve(session_id);
-
-  // Extract transaction ID from the session object
-  const paymentIntentId = session.payment_intent;
-
-  // Retrieve the payment intent object from Stripe using paymentIntentId
-  const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-
-  // Extract transaction ID from payment intent object
-  const transactionId = paymentIntent.id;
-
-  // Now you have the transaction ID, you can use it for further processing
-  // console.log("Transaction ID:", transactionId);
-
-  const orderData = globals.get('orderData');
-  const {
-    // purchasePrice,
-    // processingFee,
-    // authenticationFee,
-    shippingFee,
-    tax,
-    // discount,
-    // deliveryFee,
-    subtotal,
-    total,
-    cartItems,
-    store,
-    customer,
-    seller,
-    selectedOption,
-    pickupDate,
-    pickupTime,
-  } = orderData;
-
-  console.log("calling createOrderByStripePayment", orderData);
-
-
-
-  const newOderData = {
-    // purchasePrice,
-    // processingFee,
-    // authenticationFee,
-    shippingFee,
-    // discount,
-    tax,
-    // subtotal,
-    // deliveryFee,
-    subtotal,
-    total,
-    store,
-    customer,
-    orderStatus: 'processing',
-    paymentMethod: 'Stripe',
-    pickupType: selectedOption,
-    pickupDate,
-    pickupTime,
-  };
-  if (orderData.address) {
-    newOderData.address = orderData.address;
-  }
-
-  const order = await Order.create(newOderData);
-
-  const orderItemsFromCart = cartItems.map(
-    (i) => (i = { ...i, order: order._id }),
-  );
-  const createdOrderItems = await OrderItem.insertMany(orderItemsFromCart);
-
-  // console.log("cart Items", cartItems);
-  const createPaymentRecived = await PaymentRecieve.create({
-    order: order._id,
-    amount: subtotal,
-    store: store,
-    seller: seller,
-    transactionId: transactionId,
-  });
-
-  createdOrderItems.forEach(async (orderItem) => {
-    await SellerStoreProductSize.findByIdAndUpdate(orderItem.size, {
-      $inc: { stock: -orderItem.quantity },
-    });
-  });
-
-  const customerInfo = await Customer.findOne({ _id: customer });
-
-  // console.log("customerInfo" , customerInfo)
-
-  // const additionalCharges = Math.round(processingFee + shippingFee + authenticationFee + tax - discount)
-
-  const customerAddress = await Address.findOne({ _id: orderData?.address });
-  let findCustomerInfo = await Customer.findOne({ _id: customerAddress?.customer })
-  const storeInfo = await SellerStore.findOne({ _id: store });
-
-
-  //Shipping Create By EasyPost 
-  let totalHeight = 0;
-  let totalWeight = 0;
-  let totalLength = 0;
-  let totalWidth = 0;
-
-  orderData.cartItems.forEach((cartItem) => {
-    totalHeight += cartItem.sizeData.height || 0;
-    totalWeight += cartItem.sizeData.weight || 0;
-    totalLength += cartItem.sizeData.length || 0;
-    totalWidth += cartItem.sizeData.width || 0;
-
-  });
-
-
-  let data = JSON.stringify({
-    shipment: {
-      to_address: {
-        name: findCustomerInfo?.name,
-        street1: customerAddress.street,
-        city: customerAddress.city,
-        state: customerAddress.state,
-        zip: customerAddress.zipCode,
-        // country: "US",
-        // phone: "8573875756",
-        email: findCustomerInfo?.email
-      },
-      from_address: {
-        name: "EasyPost",
-        street1: storeInfo?.street,
-        street2: storeInfo?.stree,
-        city: storeInfo?.city,
-        state: storeInfo?.state,
-        zip: storeInfo?.zipCode,
-        // country: storeInfo,
-        phone: storeInfo?.mobile,
-        email: storeInfo?.email
-      },
-      parcel: {
-        length: totalLength,
-        width: totalWidth,
-        height: totalHeight,
-        weight: totalWeight
-      },
+    const newOderData = {
+      // purchasePrice,
+      // processingFee,
+      // authenticationFee,
+      shippingFee,
+      // discount,
+      tax,
+      // subtotal,
+      // deliveryFee,
+      subtotal,
+      total,
+      store,
+      customer,
+      orderStatus: 'processing',
+      paymentMethod: 'Stripe',
+      pickupType: selectedOption,
+      pickupDate,
+      pickupTime,
+    };
+    if (orderData.address) {
+      newOderData.address = orderData.address;
     }
-  });
-  let config = {
-    method: 'post',
-    maxBodyLength: Infinity,
-    url: `${process.env.EASY_POST_BASE_URL}/${process.env.EASY_POST_API_VERSION}/shipments`,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${process.env.EASY_POST_API_KEY}`
-    },
-    data: data
-  };
 
-  let response = await axios.request(config);
+    const order = await Order.create(newOderData);
 
-  console.log("EasyPost response", response.data);
+    const orderItemsFromCart = cartItems.map(
+      (i) => (i = { ...i, order: order._id }),
+    );
+    const createdOrderItems = await OrderItem.insertMany(orderItemsFromCart);
 
-  await sendPaymentInfoEmail(customerInfo?.email, customerInfo, cartItems, {
-    // processingFee,
-    shippingFee,
-    // authenticationFee,
-    tax,
-    // discount,
-    orderId: order?._id,
-    paymentMethod: order.paymentMethod,
-    orderDate: order.createdAt,
-    customerAddress,
-    pickupDate,
-    pickupTime,
-    selectedOption,
-    storeInfo,
-  });
+    // console.log("cart Items", cartItems);
+    const createPaymentRecived = await PaymentRecieve.create({
+      order: order._id,
+      amount: subtotal,
+      store: store,
+      seller: seller,
+      transactionId: transactionId,
+    });
 
-  const singleSeller = await Seller.findById(cartItems[0].seller);
+    createdOrderItems.forEach(async (orderItem) => {
+      await SellerStoreProductSize.findByIdAndUpdate(orderItem.size, {
+        $inc: { stock: -orderItem.quantity },
+      });
+    });
 
-  await orderEmailToSeller(
-    singleSeller.email,
-    cartItems,
-    customerInfo,
-    customerAddress,
-    pickupDate,
-    pickupTime,
-    selectedOption,
-    storeInfo,
-    subtotal,
-  );
+    const customerInfo = await Customer.findOne({ _id: customer });
 
-  // Create bought together
-  let existingRecommendation;
+    // console.log("customerInfo" , customerInfo)
 
-  if (cartItems.length > 1) {
-    for (let i = 0; i < cartItems.length; i++) {
-      for (let j = 0; j < cartItems.length; j++) {
-        existingRecommendation = await BoughtTogetherModel.findOne({
-          primaryId: cartItems[i].item,
-          secondaryId: cartItems[j].item,
-        });
 
-        if (existingRecommendation) {
-          await BoughtTogetherModel.findOneAndUpdate(
-            {
-              primaryId: cartItems[i].item,
-              secondaryId: cartItems[j].item,
-            },
-            {
-              $inc: { count: 1 },
-            },
-            { new: true },
-          );
-        } else {
-          if (i !== j) {
-            await BoughtTogetherModel.create({
-              primaryId: cartItems[i].item,
-              secondaryId: cartItems[j].item,
-            });
+    const customerAddress = await Address.findOne({ _id: orderData?.address });
+    let findCustomerInfo = await Customer.findOne({ _id: customerAddress?.customer })
+    const storeInfo = await SellerStore.findOne({ _id: store });
+
+
+    //Shipping Create By EasyPost 
+    let totalHeight = 0;
+    let totalWeight = 0;
+    let totalLength = 0;
+    let totalWidth = 0;
+
+    orderData.cartItems.forEach((cartItem) => {
+      totalHeight += cartItem.sizeData.height || 0;
+      totalWeight += cartItem.sizeData.weight || 0;
+      totalLength += cartItem.sizeData.length || 0;
+      totalWidth += cartItem.sizeData.width || 0;
+
+    });
+
+    // Shipment data configuration
+    const shipmentData = JSON.stringify({
+      shipment: {
+        to_address: {
+          name: findCustomerInfo?.name,
+          street1: customerAddress.street,
+          city: customerAddress.city,
+          state: customerAddress.state,
+          zip: customerAddress.zipCode,
+          email: findCustomerInfo?.email
+        },
+        from_address: {
+          name: "EasyPost",
+          street1: storeInfo?.street,
+          street2: storeInfo?.street2,
+          city: storeInfo?.city,
+          state: storeInfo?.state,
+          zip: storeInfo?.zipCode,
+          phone: storeInfo?.mobile,
+          email: storeInfo?.email
+        },
+        parcel: {
+          length: totalLength,
+          width: totalWidth,
+          height: totalHeight,
+          weight: totalWeight
+        }
+      }
+    });
+
+    // Common Axios configuration
+    const axiosConfig = {
+      method: 'post',
+      maxBodyLength: Infinity,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.EASY_POST_API_KEY}`
+      }
+    };
+
+    const shipmentResponse = await axios.request({
+      ...axiosConfig,
+      url: `${process.env.EASY_POST_BASE_URL}/${process.env.EASY_POST_API_VERSION}/shipments`,
+      data: shipmentData
+    });
+
+    if (shipmentResponse.data) {
+      await Order.findByIdAndUpdate(order._id, { shipmentId: shipmentResponse.data.id });
+      console.log("EasyPost shipment created with ID:", shipmentResponse.data.id);
+    }
+
+    // Tracking data configuration
+    const trackingData = JSON.stringify({
+      tracker: {
+        tracking_code: "EZ1000000001",
+        carrier: "USPS"
+      }
+    });
+
+    // Tracking creation request
+    const trackingResponse = await axios.request({
+      ...axiosConfig,
+      url: `${process.env.EASY_POST_BASE_URL}/${process.env.EASY_POST_API_VERSION}/trackers`,
+      data: trackingData
+    });
+
+    if (trackingResponse.data) {
+      await Order.findByIdAndUpdate(order._id, {
+        trackingId: trackingResponse.data.id,
+        trackingUrl: trackingResponse.data.public_url
+      });
+      console.log("EasyPost tracking created with ID:", trackingResponse.data.id);
+    }
+
+
+
+    await sendPaymentInfoEmail(customerInfo?.email, customerInfo, cartItems, {
+      // processingFee,
+      shippingFee,
+      // authenticationFee,
+      tax,
+      // discount,
+      orderId: order?._id,
+      paymentMethod: order.paymentMethod,
+      orderDate: order.createdAt,
+      customerAddress,
+      pickupDate,
+      pickupTime,
+      selectedOption,
+      storeInfo,
+    });
+
+    const singleSeller = await Seller.findById(cartItems[0].seller);
+
+    await orderEmailToSeller(
+      singleSeller.email,
+      cartItems,
+      customerInfo,
+      customerAddress,
+      pickupDate,
+      pickupTime,
+      selectedOption,
+      storeInfo,
+      subtotal,
+    );
+
+    // Create bought together
+    let existingRecommendation;
+
+    if (cartItems.length > 1) {
+      for (let i = 0; i < cartItems.length; i++) {
+        for (let j = 0; j < cartItems.length; j++) {
+          existingRecommendation = await BoughtTogetherModel.findOne({
+            primaryId: cartItems[i].item,
+            secondaryId: cartItems[j].item,
+          });
+
+          if (existingRecommendation) {
+            await BoughtTogetherModel.findOneAndUpdate(
+              {
+                primaryId: cartItems[i].item,
+                secondaryId: cartItems[j].item,
+              },
+              {
+                $inc: { count: 1 },
+              },
+              { new: true },
+            );
+          } else {
+            if (i !== j) {
+              await BoughtTogetherModel.create({
+                primaryId: cartItems[i].item,
+                secondaryId: cartItems[j].item,
+              });
+            }
           }
         }
       }
     }
+
+    res.redirect(`${process.env.CONSUMER_APP_LINK}/main/checkout/orderSuccesful`);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error });
+
   }
 
-  res.redirect(`${process.env.CONSUMER_APP_LINK}/main/checkout/orderSuccesful`);
+
 });
 
 const createOrderByCrpyto = asyncHandler(async (req, res) => {
