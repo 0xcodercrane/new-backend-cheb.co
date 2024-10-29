@@ -165,6 +165,15 @@ const loginSeller = asyncHandler(async (req, res) => {
     throw new Error("Seller is not verified");
   }
 
+
+   // check seller is verified
+   if (seller.isArchive) {
+    res.status(400);
+    throw new Error("Seller is restricted by Admin");
+  }
+
+ 
+
   // Check if password matches
   if (seller && (await compare(password, seller.password))) {
     res.status(200).json({

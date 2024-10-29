@@ -5,6 +5,7 @@ import { StatusCodes } from 'http-status-codes';
 import { ResponseMessage } from '#controllers/utils/ResponseMessage.js';
 import sellerStoreModel from '#models/userModels/sellerModel/sellerStoreModel/sellerStoreModel.js';
 import Customer from '#models/userModels/customerModel/customerModel.js';
+import orderModel from '#models/orderModels/orderModel.js';
 
 
 
@@ -110,10 +111,37 @@ const deleteAddress = asyncHandler(async (req, res) => {
     res.status(200).json({ deletedCount: true })
 })
 
+
+
+function filterRatesByDeliveryDays(rates, deliveryDaysRange) {
+    let filteredRates = [];
+
+    if (deliveryDaysRange === "1-3") {
+        filteredRates = rates.filter(rate => rate.delivery_days >= 1 && rate.delivery_days <= 3);
+    } else if (deliveryDaysRange === "3-7") {
+        filteredRates = rates.filter(rate => rate.delivery_days >= 3 && rate.delivery_days <= 7);
+    } else if (deliveryDaysRange === "7+") {
+        let filterData = rates.filter(rate => rate.delivery_days >= 7)
+        if (filterData.length > 0) {
+            filteredRates = rates.filter(rate => rate.delivery_days >= 7);
+        }
+        else {
+            filteredRates = rates;
+        }
+    }
+    const lowestRate = filteredRates.length > 0 ? filteredRates.reduce((prev, curr) => {
+        return parseFloat(curr.rate) < parseFloat(prev.rate) ? curr : prev;
+    }) : null;
+    return lowestRate ?? {};
+
+}
+
+
 //get carrier charge && delivery date.
 export const getCarrierCharge = asyncHandler(async (req, res) => {
     try {
-        const { city, state, storeId, street, zipCode } = req.body;
+        const { city, state, storeId, street, zipCode, deliveryDays } = req.body;
+
 
         let totalHeight = 0;
         let totalWeight = 0;
@@ -175,20 +203,14 @@ export const getCarrierCharge = asyncHandler(async (req, res) => {
             },
             data: data
         };
-
-        console.log("config",config)
-
         let response = await axios.request(config);
-        const filteredRates = response.data.rates.filter(rate => rate.delivery_date !== null);
-
-        const lowestRate = filteredRates.reduce((prev, curr) => {
-            return parseFloat(curr.rate) < parseFloat(prev.rate) ? curr : prev;
-        });
+        const lowestRate = filterRatesByDeliveryDays(response.data.rates, deliveryDays);
 
         return res.status(StatusCodes.OK).json({
             data: lowestRate,
         });
     } catch (err) {
+        console.log("err", err)
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
             message: ResponseMessage.INTERNAL_SERVER_ERROR,
             data: err.message,
@@ -196,8 +218,76 @@ export const getCarrierCharge = asyncHandler(async (req, res) => {
     }
 
 
-
 })
+
+
+async function updateTrackingStatusInDB(trackingCode, status, trackingDetails) {
+    try {
+        // Find the tracking record in the database based on tracking code
+        const trackingRecord = await orderModel.findOne({ trackingCode });
+
+        if (!trackingRecord) {
+            console.log('Tracking record not found');
+            return;
+        }
+
+        trackingRecord.orderStatus = status;
+        trackingRecord.tracking_details = trackingDetails;
+
+        await trackingRecord.save();
+
+        if (trackingRecord.orderStatus == "delivered") {
+
+            const amountInCents = Math.round(trackingRecord.subtotal * 100);
+
+
+            const [findSeller, isPaymentConfig] = await Promise.all([
+                SellerModel.findOne({ _id: trackingRecord.store }),
+                PaymentAccountLinkModel.findOne({ _id: trackingRecord.store })
+            ]);
+
+            console.log("isPaymentConfig", isPaymentConfig)
+
+            const transfer = await stripeInstance.transfers.create({
+                amount: amountInCents,
+                currency: 'usd',
+                destination: isPaymentConfig.accountId,
+                transfer_group: 'ORDER_95',
+            });
+
+            if (!transfer) {
+                return res.status(400).json({
+                    status: StatusCodes.BAD_REQUEST,
+                    message: "Payment failed",
+                    data: null,
+                });
+
+            }
+
+        }
+
+        console.log(`Tracking status updated for ${trackingCode}: ${status}`);
+    } catch (error) {
+        console.error('Error updating tracking status:', error);
+    }
+}
+
+
+export const updateDeliveryStatus = asyncHandler(async (req, res) => {
+    const { result } = req.body;
+
+    console.log("249", req.body)
+    if (result && result.object === "Tracker") {
+        const { tracking_code, status, tracking_details } = result;
+
+        // Update your database with the tracking status
+        updateTrackingStatusInDB(tracking_code, status, tracking_details);
+
+        res.status(200).send("Webhook received");
+    } else {
+        res.status(400).send("Invalid data");
+    }
+});
 
 export {
     getAllAddresses,

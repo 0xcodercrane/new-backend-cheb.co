@@ -16,6 +16,9 @@ const paymentRoutes = Router();
 
 paymentRoutes.route("/").post(protectForCustomer, paymentIntent);
 paymentRoutes.route("/mobile").post(protectForCustomer, createPaymentIntent);
+
+
+
 paymentRoutes
   .route("/createOrderByCrpyto")
   .post(protectForCustomer, createOrderByCrpyto);

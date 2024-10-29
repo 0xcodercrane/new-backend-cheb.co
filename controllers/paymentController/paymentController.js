@@ -1,23 +1,23 @@
-import Stripe from 'stripe';
-import asyncHandler from 'express-async-handler';
-import Order from '#models/orderModels/orderModel.js';
-import OrderItem from '#models/orderModels/orderItemsModel.js';
-import globals from 'node-global-storage';
-import PaymentRecieve from '#models/paymentRecivedModel/paymentRecivedModel.js';
-import PaymentToSeller from '#models/paymentToSellerModel/paymentToSellerModel.js';
-import Address from '#models/addressModel/addressModel.js';
-import Customer from '#models/userModels/customerModel/customerModel.js';
-import mongoose from 'mongoose';
-import { sendPaymentInfoEmail } from '#config/email/emailFormats/sendPaymentInfoEmail.js';
-import BoughtTogetherModel from '#models/productModel/boughtTogetherModel.js';
-import { orderEmailToSeller } from '../../config/email/emailFormats/orderEmailToSeller.js';
-import Seller from '#models/userModels/sellerModel/sellerModel.js';
-import SellerStoreProductSize from '#models/productModel/sellerStoreProductSizeModel.js';
-import SellerStore from '#models/userModels/sellerModel/sellerStoreModel/sellerStoreModel.js';
-import axios from 'axios';
+import Stripe from "stripe";
+import asyncHandler from "express-async-handler";
+import Order from "#models/orderModels/orderModel.js";
+import OrderItem from "#models/orderModels/orderItemsModel.js";
+import globals from "node-global-storage";
+import PaymentRecieve from "#models/paymentRecivedModel/paymentRecivedModel.js";
+import PaymentToSeller from "#models/paymentToSellerModel/paymentToSellerModel.js";
+import Address from "#models/addressModel/addressModel.js";
+import Customer from "#models/userModels/customerModel/customerModel.js";
+import mongoose from "mongoose";
+import { sendPaymentInfoEmail } from "#config/email/emailFormats/sendPaymentInfoEmail.js";
+import BoughtTogetherModel from "#models/productModel/boughtTogetherModel.js";
+import { orderEmailToSeller } from "../../config/email/emailFormats/orderEmailToSeller.js";
+import Seller from "#models/userModels/sellerModel/sellerModel.js";
+import SellerStoreProductSize from "#models/productModel/sellerStoreProductSizeModel.js";
+import SellerStore from "#models/userModels/sellerModel/sellerStoreModel/sellerStoreModel.js";
+import axios from "axios";
 
 const paymentIntent = asyncHandler(async (req, res) => {
-  globals.unset('orderData');
+  globals.unset("orderData");
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -63,9 +63,9 @@ const paymentIntent = asyncHandler(async (req, res) => {
     orderData.address = address;
   }
 
-  console.log('Order Data', orderData);
+  console.log("Order Data", orderData);
 
-  globals.set('orderData', orderData);
+  globals.set("orderData", orderData);
 
   const customer = await stripe.customers.list({
     email: req.customer.email,
@@ -94,13 +94,13 @@ const paymentIntent = asyncHandler(async (req, res) => {
 
   // Calculate additional charge amount
 
-  console.log(additionalCharges, 'additionalCharges');
+  console.log(additionalCharges, "additionalCharges");
   //  console.log("Addditional charge is ",additionalCharges)
 
   // Set up line items including products and additional charge
   const lineItems = cartItems.map((product) => ({
     price_data: {
-      currency: 'usd',
+      currency: "usd",
       product_data: {
         name: product.name,
         // images: [product.cardImage],
@@ -110,7 +110,7 @@ const paymentIntent = asyncHandler(async (req, res) => {
     quantity: product.quantity,
   }));
 
-  console.log(lineItems, 'Line Items');
+  console.log(lineItems, "Line Items");
   // Add line item for additional charge
   if (additionalCharges > 0) {
     lineItems.push({
@@ -126,7 +126,7 @@ const paymentIntent = asyncHandler(async (req, res) => {
     });
   }
 
-  console.log(customerId, 'Customer ID');
+  console.log(customerId, "Customer ID");
   //  create checkout session
   // const session = await stripe.checkout.sessions.create({
   //   payment_method_types: ["card"],
@@ -145,9 +145,9 @@ const paymentIntent = asyncHandler(async (req, res) => {
 
   try {
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
+      payment_method_types: ["card"],
       line_items: lineItems,
-      mode: 'payment',
+      mode: "payment",
       customer: customerId,
       automatic_tax: {
         enabled: true,
@@ -161,7 +161,7 @@ const paymentIntent = asyncHandler(async (req, res) => {
       },
 
       payment_intent_data: {
-        setup_future_usage: 'on_session',
+        setup_future_usage: "on_session",
       },
       success_url: `${process.env.BACKEND_URL}/api/customers/payment-intent/createOrderByStripePayment?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.CONSUMER_APP_LINK}/main/checkout/orderCancel`,
@@ -170,11 +170,11 @@ const paymentIntent = asyncHandler(async (req, res) => {
     // console.log("Session created:", session);
     res.json({ id: session.id });
   } catch (error) {
-    console.error('Error creating Stripe session:', error);
-    res.status(500).json({ error: 'Failed to create Stripe session' });
+    console.error("Error creating Stripe session:", error);
+    res.status(500).json({ error: "Failed to create Stripe session" });
   }
 
-  console.log(session, 'Session');
+  console.log(session, "Session");
 
   res.json({ id: session.id });
 });
@@ -289,27 +289,27 @@ const createPaymentIntent = asyncHandler(async (req, res) => {
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amountInCents, // Use the tax-inclusive amount or fallback to original
-      currency: 'usd',
+      currency: "usd",
       customer: customerId,
-      setup_future_usage: 'off_session',
-      payment_method_types: ['card'],
+      setup_future_usage: "off_session",
+      payment_method_types: ["card"],
       receipt_email: req.customer.email,
       metadata: {
         customerId: customerId,
-        orderId: 'TEMP_ORDER_ID',
+        orderId: "TEMP_ORDER_ID",
       },
     });
 
     res.json({ clientSecret: paymentIntent.client_secret });
   } catch (error) {
-    console.error('Error creating payment intent:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error("Error creating payment intent:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
 const createMobileOrder = asyncHandler(async (req, res) => {
   try {
-    console.log('Step 1: Extracting data from request body', req.body);
+    console.log("Step 1: Extracting data from request body", req.body);
     const customer = req.customer._id;
     const {
       address,
@@ -328,9 +328,9 @@ const createMobileOrder = asyncHandler(async (req, res) => {
       _id: store,
     });
 
-    console.log('check', seller);
+    console.log("check", seller);
 
-    console.log('Step 2: Preparing new order data');
+    console.log("Step 2: Preparing new order data");
     const newOrderData = {
       shippingFee,
       tax,
@@ -338,40 +338,40 @@ const createMobileOrder = asyncHandler(async (req, res) => {
       total,
       store,
       customer,
-      orderStatus: 'processing',
-      paymentMethod: 'Not Specified', // or specify if needed, e.g., "Cash on Delivery"
+      orderStatus: "processing",
+      paymentMethod: "Not Specified", // or specify if needed, e.g., "Cash on Delivery"
       pickupType,
       pickupDate,
       pickupTime,
     };
 
     if (address) {
-      console.log('Step 2a: Address provided, adding to order data');
+      console.log("Step 2a: Address provided, adding to order data");
       newOrderData.address = address;
     }
 
-    console.log('Step 3: Creating the order');
+    console.log("Step 3: Creating the order");
     const order = await Order.create(newOrderData);
-    console.log('Order created:', order);
+    console.log("Order created:", order);
 
     const orderItemsFromCart = cartItems.map((item) => ({
       ...item,
       order: order._id,
     }));
     const createdOrderItems = await OrderItem.insertMany(orderItemsFromCart);
-    console.log('Order items created:', createdOrderItems);
+    console.log("Order items created:", createdOrderItems);
 
-    console.log('Step 5: Creating payment record');
+    console.log("Step 5: Creating payment record");
     const createPaymentRecieve = await PaymentRecieve.create({
       order: order._id,
       amount: subtotal,
       store: store,
       seller: seller,
-      transactionId: 'Not Specified', // or specify if needed
+      transactionId: "Not Specified", // or specify if needed
     });
-    console.log('Payment record created:', createPaymentRecieve);
+    console.log("Payment record created:", createPaymentRecieve);
 
-    console.log('Step 6: Updating stock for ordered items');
+    console.log("Step 6: Updating stock for ordered items");
     createdOrderItems.forEach(async (orderItem) => {
       console.log(`Updating stock for item size: ${orderItem.size}`);
       await SellerStoreProductSize.findByIdAndUpdate(orderItem.size, {
@@ -379,15 +379,15 @@ const createMobileOrder = asyncHandler(async (req, res) => {
       });
     });
 
-    console.log('Step 7: Fetching customer and store information for email');
+    console.log("Step 7: Fetching customer and store information for email");
     const customerInfo = await Customer.findById(customer);
     const customerAddress = await Address.findById(address);
     const storeInfo = await SellerStore.findById(store);
-    console.log('Customer info:', customerInfo);
-    console.log('Customer address:', customerAddress);
-    console.log('Store info:', storeInfo);
+    console.log("Customer info:", customerInfo);
+    console.log("Customer address:", customerAddress);
+    console.log("Store info:", storeInfo);
 
-    console.log('Step 8: Sending payment info email to customer');
+    console.log("Step 8: Sending payment info email to customer");
     await sendPaymentInfoEmail(customerInfo.email, customerInfo, cartItems, {
       shippingFee,
       tax,
@@ -402,7 +402,7 @@ const createMobileOrder = asyncHandler(async (req, res) => {
       total: order.total,
     });
 
-    console.log('Step 9: Sending order email to seller');
+    console.log("Step 9: Sending order email to seller");
 
     // console.log("newOrderData", newOrderData.subtotal);
     const singleSeller = await Seller.findById(seller);
@@ -415,16 +415,16 @@ const createMobileOrder = asyncHandler(async (req, res) => {
       pickupTime,
       pickupType,
       storeInfo,
-      subtotal,
+      subtotal
     );
 
-    console.log('Step 10: Creating bought together recommendations');
+    console.log("Step 10: Creating bought together recommendations");
     if (cartItems.length > 1) {
       for (let i = 0; i < cartItems.length; i++) {
         for (let j = 0; j < cartItems.length; j++) {
           if (i !== j) {
             console.log(
-              `Checking recommendation for items: ${cartItems[i].item} and ${cartItems[j].item}`,
+              `Checking recommendation for items: ${cartItems[i].item} and ${cartItems[j].item}`
             );
             const existingRecommendation = await BoughtTogetherModel.findOne({
               primaryId: cartItems[i].item,
@@ -432,17 +432,17 @@ const createMobileOrder = asyncHandler(async (req, res) => {
             });
 
             if (existingRecommendation) {
-              console.log('Existing recommendation found, updating count');
+              console.log("Existing recommendation found, updating count");
               await BoughtTogetherModel.findOneAndUpdate(
                 {
                   primaryId: cartItems[i].item,
                   secondaryId: cartItems[j].item,
                 },
                 { $inc: { count: 1 } },
-                { new: true },
+                { new: true }
               );
             } else {
-              console.log('No recommendation found, creating new one');
+              console.log("No recommendation found, creating new one");
               await BoughtTogetherModel.create({
                 primaryId: cartItems[i].item,
                 secondaryId: cartItems[j].item,
@@ -453,26 +453,24 @@ const createMobileOrder = asyncHandler(async (req, res) => {
       }
     }
 
-    console.log('Step 11: Sending response');
+    console.log("Step 11: Sending response");
     res.status(201).json({
-      message: 'Order created successfully',
+      message: "Order created successfully",
       order,
       orderItems: createdOrderItems,
     });
   } catch (error) {
-    console.error('Error occurred:', error);
+    console.error("Error occurred:", error);
     res
       .status(500)
-      .json({ message: 'An error occurred while creating the order', error });
+      .json({ message: "An error occurred while creating the order", error });
   }
 });
 
 // Create Order
 const createOrderByStripePayment = asyncHandler(async (req, res) => {
-
   try {
-
-    console.log('Step 1: Fetching customer and seller information', req.que);
+    console.log("Step 1: Fetching customer and seller information", req.que);
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
     const { session_id } = req.query;
@@ -492,7 +490,7 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
     // Now you have the transaction ID, you can use it for further processing
     // console.log("Transaction ID:", transactionId);
 
-    const orderData = globals.get('orderData');
+    const orderData = globals.get("orderData");
     const {
       // purchasePrice,
       // processingFee,
@@ -514,8 +512,6 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
 
     console.log("calling createOrderByStripePayment", orderData);
 
-
-
     const newOderData = {
       // purchasePrice,
       // processingFee,
@@ -529,8 +525,8 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
       total,
       store,
       customer,
-      orderStatus: 'processing',
-      paymentMethod: 'Stripe',
+      orderStatus: "processing",
+      paymentMethod: "Stripe",
       pickupType: selectedOption,
       pickupDate,
       pickupTime,
@@ -542,7 +538,7 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
     const order = await Order.create(newOderData);
 
     const orderItemsFromCart = cartItems.map(
-      (i) => (i = { ...i, order: order._id }),
+      (i) => (i = { ...i, order: order._id })
     );
     const createdOrderItems = await OrderItem.insertMany(orderItemsFromCart);
 
@@ -565,13 +561,13 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
 
     // console.log("customerInfo" , customerInfo)
 
-
     const customerAddress = await Address.findOne({ _id: orderData?.address });
-    let findCustomerInfo = await Customer.findOne({ _id: customerAddress?.customer })
+    let findCustomerInfo = await Customer.findOne({
+      _id: customerAddress?.customer,
+    });
     const storeInfo = await SellerStore.findOne({ _id: store });
 
-
-    //Shipping Create By EasyPost 
+    //Shipping Create By EasyPost
     let totalHeight = 0;
     let totalWeight = 0;
     let totalLength = 0;
@@ -582,7 +578,6 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
       totalWeight += cartItem.sizeData.weight || 0;
       totalLength += cartItem.sizeData.length || 0;
       totalWidth += cartItem.sizeData.width || 0;
-
     });
 
     // Shipment data configuration
@@ -594,7 +589,7 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
           city: customerAddress.city,
           state: customerAddress.state,
           zip: customerAddress.zipCode,
-          email: findCustomerInfo?.email
+          email: findCustomerInfo?.email,
         },
         from_address: {
           name: "EasyPost",
@@ -604,62 +599,99 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
           state: storeInfo?.state,
           zip: storeInfo?.zipCode,
           phone: storeInfo?.mobile,
-          email: storeInfo?.email
+          email: storeInfo?.email,
         },
         parcel: {
           length: totalLength,
           width: totalWidth,
           height: totalHeight,
-          weight: totalWeight
-        }
-      }
+          weight: totalWeight,
+        },
+      },
     });
 
     // Common Axios configuration
     const axiosConfig = {
-      method: 'post',
+      method: "post",
       maxBodyLength: Infinity,
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.EASY_POST_API_KEY}`
-      }
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.EASY_POST_API_KEY}`,
+      },
     };
 
     const shipmentResponse = await axios.request({
       ...axiosConfig,
       url: `${process.env.EASY_POST_BASE_URL}/${process.env.EASY_POST_API_VERSION}/shipments`,
-      data: shipmentData
+      data: shipmentData,
     });
 
     if (shipmentResponse.data) {
-      await Order.findByIdAndUpdate(order._id, { shipmentId: shipmentResponse.data.id });
-      console.log("EasyPost shipment created with ID:", shipmentResponse.data.id);
+      await Order.findByIdAndUpdate(order._id, {
+        shipmentId: shipmentResponse.data.id,
+      });
+      console.log(
+        "EasyPost shipment created with ID:",
+        shipmentResponse.data.id
+      );
     }
+
+    //getting tracking_code by shipmentId
+
+    const rateId = JSON.stringify({
+      "rate": {
+        "id": shipmentResponse.data.rates[0].id
+      }})
+
+    const trackingCodeResponse = await axios.request({
+      ...axiosConfig,
+      url: `${process.env.EASY_POST_BASE_URL}/${process.env.EASY_POST_API_VERSION}/shipments/${shipmentResponse.data.id}/buy`,
+      data: rateId,
+    });
+
+    console.log("trackingCodeResponse",trackingCodeResponse)
+
+    if (trackingCodeResponse.data) {
+      await Order.findByIdAndUpdate(order._id, {
+        // trackingCodeResponse.data.tracking_code
+        trackingCode:"EZ2000000002" ,
+      });
+      console.log(
+        "EasyPost tracking code get:",
+        trackingCodeResponse.data.tracking_code
+      );
+    }
+
+
 
     // Tracking data configuration
     const trackingData = JSON.stringify({
       tracker: {
-        tracking_code: "EZ1000000001",
-        carrier: "USPS"
-      }
+        // trackingCodeResponse.data.tracking_code
+        tracking_code:"EZ2000000002",
+        carrier: shipmentResponse.data.rates[0].carrier,
+      },
     });
 
     // Tracking creation request
     const trackingResponse = await axios.request({
       ...axiosConfig,
       url: `${process.env.EASY_POST_BASE_URL}/${process.env.EASY_POST_API_VERSION}/trackers`,
-      data: trackingData
+      data: trackingData,
     });
 
     if (trackingResponse.data) {
       await Order.findByIdAndUpdate(order._id, {
         trackingId: trackingResponse.data.id,
-        trackingUrl: trackingResponse.data.public_url
+        trackingUrl: trackingResponse.data.public_url,
+        // trackingResponse.data.tracking_code,
+        trackingCode: "EZ2000000002" 
       });
-      console.log("EasyPost tracking created with ID:", trackingResponse.data.id);
+      console.log(
+        "EasyPost tracking created with ID:",
+        trackingResponse.data.id
+      );
     }
-
-
 
     await sendPaymentInfoEmail(customerInfo?.email, customerInfo, cartItems, {
       // processingFee,
@@ -688,7 +720,7 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
       pickupTime,
       selectedOption,
       storeInfo,
-      subtotal,
+      subtotal
     );
 
     // Create bought together
@@ -711,7 +743,7 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
               {
                 $inc: { count: 1 },
               },
-              { new: true },
+              { new: true }
             );
           } else {
             if (i !== j) {
@@ -725,16 +757,18 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
       }
     }
 
-    res.redirect(`${process.env.CONSUMER_APP_LINK}/main/checkout/orderSuccesful`);
-
+    res.redirect(
+      `${process.env.CONSUMER_APP_LINK}/main/checkout/orderSuccesful`
+    );
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: error });
-
   }
-
-
 });
+
+
+
+
 
 const createOrderByCrpyto = asyncHandler(async (req, res) => {
   const {
@@ -769,8 +803,8 @@ const createOrderByCrpyto = asyncHandler(async (req, res) => {
     total,
     store,
     customer: req.customer._id,
-    orderStatus: 'processing',
-    paymentMethod: 'Crypto',
+    orderStatus: "processing",
+    paymentMethod: "Crypto",
     pickupType: selectedOption,
     pickupDate,
     pickupTime,
@@ -782,7 +816,7 @@ const createOrderByCrpyto = asyncHandler(async (req, res) => {
   const order = await Order.create(newOderData);
 
   const orderItemsFromCart = cartItems.map(
-    (i) => (i = { ...i, order: order._id }),
+    (i) => (i = { ...i, order: order._id })
   );
   const createdOrderItems = await OrderItem.insertMany(orderItemsFromCart);
 
@@ -832,7 +866,7 @@ const createOrderByCrpyto = asyncHandler(async (req, res) => {
     pickupDate,
     pickupTime,
     selectedOption,
-    (subtotal = newOderData?.subtotal),
+    (subtotal = newOderData?.subtotal)
   );
   // Create bought together
   let existingRecommendation;
@@ -854,7 +888,7 @@ const createOrderByCrpyto = asyncHandler(async (req, res) => {
             {
               $inc: { count: 1 },
             },
-            { new: true },
+            { new: true }
           );
         } else {
           if (i !== j) {
@@ -885,18 +919,17 @@ const getCustomerStripeId = asyncHandler(async (req, res) => {
   if (customer.data.length > 0) {
     customerId = customer.data[0].id;
   } else {
-    return res.status(404).json({ message: 'Customer not found' });
+    return res.status(404).json({ message: "Customer not found" });
   }
 
   const paymentMethods = await stripe.paymentMethods.list({
     customer: customerId,
-    type: 'card',
+    type: "card",
   });
   res.json({ payment_methods: paymentMethods.data });
 });
 
 const dispatchStripeSaveCard = asyncHandler(async (req, res) => {
-
   const id = req.params.id;
   console.log(id);
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -913,7 +946,7 @@ const getSellerTotalOrderSum = asyncHandler(async (req, res) => {
   try {
     const sum = await PaymentRecieve.aggregate([
       { $match: { seller: mongoose.Types.ObjectId(id) } },
-      { $group: { _id: null, totalAmount: { $sum: '$amount' } } },
+      { $group: { _id: null, totalAmount: { $sum: "$amount" } } },
     ]);
 
     if (!sum.length) {
@@ -926,7 +959,7 @@ const getSellerTotalOrderSum = asyncHandler(async (req, res) => {
     res.status(200).json({ totalAmount: roundedTotalAmount });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Error fetching sum' });
+    res.status(500).json({ message: "Error fetching sum" });
   }
 });
 
@@ -936,7 +969,7 @@ const getSingleSellerTotalPaidPayment = asyncHandler(async (req, res) => {
   try {
     const sum = await PaymentToSeller.aggregate([
       { $match: { seller: mongoose.Types.ObjectId(id) } },
-      { $group: { _id: null, totalAmount: { $sum: '$amount' } } },
+      { $group: { _id: null, totalAmount: { $sum: "$amount" } } },
     ]);
 
     if (!sum.length) {
@@ -949,7 +982,7 @@ const getSingleSellerTotalPaidPayment = asyncHandler(async (req, res) => {
     res.status(200).json({ totalAmount: roundedTotalAmount });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Error fetching sum' });
+    res.status(500).json({ message: "Error fetching sum" });
   }
 });
 
@@ -960,7 +993,7 @@ const singleSellerTotalOrderValue = asyncHandler(async (req, res) => {
   try {
     const sum = await PaymentRecieve.aggregate([
       { $match: { seller: mongoose.Types.ObjectId(id) } },
-      { $group: { _id: null, totalAmount: { $sum: '$amount' } } },
+      { $group: { _id: null, totalAmount: { $sum: "$amount" } } },
     ]);
 
     if (!sum.length) {
@@ -973,7 +1006,7 @@ const singleSellerTotalOrderValue = asyncHandler(async (req, res) => {
     res.status(200).json({ totalAmount: roundedTotalAmount });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Error fetching sum' });
+    res.status(500).json({ message: "Error fetching sum" });
   }
 });
 
@@ -983,7 +1016,7 @@ const singleSellerTotalPaidValue = asyncHandler(async (req, res) => {
   try {
     const sum = await PaymentToSeller.aggregate([
       { $match: { seller: mongoose.Types.ObjectId(id) } },
-      { $group: { _id: null, totalAmount: { $sum: '$amount' } } },
+      { $group: { _id: null, totalAmount: { $sum: "$amount" } } },
     ]);
 
     if (!sum.length) {
@@ -996,7 +1029,7 @@ const singleSellerTotalPaidValue = asyncHandler(async (req, res) => {
     res.status(200).json({ totalAmount: roundedTotalAmount });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Error fetching sum' });
+    res.status(500).json({ message: "Error fetching sum" });
   }
 });
 

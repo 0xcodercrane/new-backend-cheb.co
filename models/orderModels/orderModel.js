@@ -62,6 +62,14 @@ const orderSchema = Schema(
       Type:String      
     },
 
+    trackingCode:{
+      type: String
+    },
+
+    tracking_details :{
+      type: Array,
+      required: false
+    },  
 
     // authenticationFee: {
     //   type: Number,

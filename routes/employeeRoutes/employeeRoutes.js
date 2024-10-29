@@ -17,7 +17,7 @@ import paymentToSellerRoutes from "./paymentToSellerRoutes/paymentToSellerRoutes
 import { totalOrderValue } from "#controllers/orderControllers/orderController.js";
 import { totalPaymentToSeller } from "#controllers/paymentToSellerController/paymentToSellerController.js";
 import { totalProducts } from "#controllers/productController/productController.js";
-import { adminDashboardInfo } from "#controllers/dashboardInfoController/dashboardInfoController.js";
+import { adminChangePassword, adminDashboardInfo, getProfileData } from "#controllers/dashboardInfoController/dashboardInfoController.js";
 import productRoutes from "./productRoutes/productRoutes.js";
 
 const employeeRoutes = Router();
@@ -53,5 +53,7 @@ employeeRoutes.use("/totalPaymentToSeller", totalPaymentToSeller);
 employeeRoutes.use("/totalProducts", totalProducts);
 
 employeeRoutes.route("/dashboardInfo").get(adminDashboardInfo);
+employeeRoutes.route("/change-password").post(adminChangePassword);
+employeeRoutes.route("/profile").all(getProfileData);
 
 export default employeeRoutes;

@@ -7,6 +7,10 @@ export const ResponseMessage = {
     OTP_EXPIRED: "OTP expired",
     SOMETHING_WENT_WRONG: "Something went wrong",
     OTP_RESENT: "Resend OTP has been sent to your email",
+    PASSWORD_UPDATED: "password has been updated successfully",
+    PROFILE_DATA: "Profile data updated successfully",
+    OLD_PASSWORD_INCORRECT: "Old password is incorrect",    
+    FETCH_DATA : "Data fetched successfully",
 
 
 }

@@ -7,6 +7,12 @@ import PaymentRecieve from "#models/paymentRecivedModel/paymentRecivedModel.js";
 import Order from "#models/orderModels/orderModel.js";
 import mongoose from "mongoose";
 import moment from "moment";
+import { StatusCodes } from "http-status-codes";
+import { ResponseMessage } from "#controllers/utils/ResponseMessage.js";
+import bcrypt from 'bcryptjs'
+import EmployeeModel from "#models/userModels/employeeModel/employeeModel.js";
+
+const { genSalt, hash, compare } = bcrypt
 
 const adminDashboardInfo = asyncHandler(async (req, res) => {
   try {
@@ -52,6 +58,81 @@ const adminDashboardInfo = asyncHandler(async (req, res) => {
     console.error(err);
     res.status(500).send("Internal Server Error");
   }
+});
+
+export const adminChangePassword = asyncHandler(async (req, res) => {
+  try {
+
+    const { oldPassword, newPassword } = req.body;
+    const user = await EmployeeModel.findById(req.employee);
+
+    if (!user) {
+      return res.status(StatusCodes.NOT_FOUND).json({
+        message: ResponseMessage.USER_NOT_EXIST,
+      });
+    }
+
+    if (user && (await compare(oldPassword, user.password))) {
+
+      // Hash Password
+      const salt = await genSalt(10)
+      const hashedPassword = await hash(newPassword, salt)
+      await EmployeeModel.findOneAndUpdate({ _id: user._id }, { password: hashedPassword }).exec()
+
+      return res.status(StatusCodes.OK).json({
+        message: ResponseMessage.PASSWORD_UPDATED,
+        data: [],
+      });
+    }
+
+    return res.status(StatusCodes.BAD_REQUEST).json({
+      message: ResponseMessage.OLD_PASSWORD_INCORRECT,
+      data: [],
+    });
+
+  } catch (error) {
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      message: ResponseMessage.INTERNAL_SERVER_ERROR,
+      data: error.message,
+    });
+  }
+
+});
+
+export const getProfileData = asyncHandler(async (req, res) => {
+  try {
+    const user = await EmployeeModel.findById(req.employee);
+    if (!user) {
+      return res.status(StatusCodes.NOT_FOUND).json({
+        message: ResponseMessage.USER_NOT_EXIST,
+      });
+    }
+    
+    if (req.body &&  req.body.name && Object.keys(req.body).length > 0 ) {
+      let getProfileData = await EmployeeModel.findOneAndUpdate({ _id: user._id },{...req.body }, { new: true }).select('-password')
+
+      return res.status(StatusCodes.OK).json({
+        message: ResponseMessage.PROFILE_DATA,
+        data: getProfileData,
+      });
+    }
+
+    let getProfileData = await EmployeeModel.findOne({ _id: user._id }).select('-password');
+
+    return res.status(StatusCodes.OK).json({
+      message: ResponseMessage.FETCH_DATA,
+      data: getProfileData,
+    });
+    
+
+  } catch (error) {
+    console.error(error);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      message: ResponseMessage.INTERNAL_SERVER_ERROR,
+      data: error.message,
+    });
+  }
+
 });
 
 const sellerDashboardInfo = asyncHandler(async (req, res) => {
@@ -221,13 +302,13 @@ const sellerDashboardRevenueGraph = asyncHandler(async (req, res) => {
         data: response,
       });
     }
-    
+
     if (limit == "yearly") {
       const monthsArray = [
         'January', 'February', 'March', 'April', 'May', 'June',
         'July', 'August', 'September', 'October', 'November', 'December'
       ];
-      
+
       const pipeline = [
         {
           $group: {
@@ -248,7 +329,7 @@ const sellerDashboardRevenueGraph = asyncHandler(async (req, res) => {
           },
         },
         {
-          $sort: { _id: 1 }, 
+          $sort: { _id: 1 },
         },
         {
           $group: {
@@ -280,7 +361,7 @@ const sellerDashboardRevenueGraph = asyncHandler(async (req, res) => {
           }
         },
         {
-          $unwind: "$data" 
+          $unwind: "$data"
         },
         {
           $addFields: {
@@ -293,7 +374,7 @@ const sellerDashboardRevenueGraph = asyncHandler(async (req, res) => {
         {
           $group: {
             _id: null,
-            data: { $push: "$data" } 
+            data: { $push: "$data" }
           }
         },
         {
@@ -303,7 +384,7 @@ const sellerDashboardRevenueGraph = asyncHandler(async (req, res) => {
           }
         }
       ];
-    
+
       try {
         const result = await PaymentRecieve.aggregate(pipeline);
         return res.status(200).json({
@@ -314,7 +395,7 @@ const sellerDashboardRevenueGraph = asyncHandler(async (req, res) => {
         console.error(error);
       }
     }
-    
+
 
     if (limit == "monthly") {
       const currentMonth = new Date().getMonth() + 1;
