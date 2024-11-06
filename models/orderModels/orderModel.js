@@ -101,7 +101,7 @@ const orderSchema = Schema(
     orderStatus: {
       type: String,
       required: true,
-      enum: ['processing', 'toBeDelivered', 'shipped', 'completed', 'canceled'],
+      enum: ['processing', 'toBeDelivered', 'shipped', 'completed', 'canceled' , "delivered", "pre_transit"],
     },
     paymentMethod: {
       type: String,

@@ -91,6 +91,13 @@ const loginEmployee = asyncHandler(async (req, res) => {
         throw new Error('No employee found with this email')
     }
 
+    // check seller is verified
+    if (employee.isArchive) {
+        res.status(400);
+        throw new Error("Your account is restricted. Please contact the admin for assistance.");
+    }
+
+
     // Check if password matches
 
     if (employee && (await compare(password, employee.password))) {

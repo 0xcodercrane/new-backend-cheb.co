@@ -117,6 +117,69 @@ const getHomePageData = asyncHandler(async (req, res) => {
 
     const storeIds = stores.map(store => store._id);
 
+    // const uniqueStores = await SellerStoreProduct.aggregate([
+    //   {
+    //     $lookup: {
+    //       from: "sellerstores",
+    //       localField: "sellerStore",
+    //       foreignField: "_id",
+    //       as: "sellerStoreDetails",
+    //     },
+    //   },
+    //   { $unwind: "$sellerStoreDetails" },
+    //   {
+    //     $match: {
+    //       "sellerStoreDetails.isArchive": false,
+    //       isActive: true,
+    //     },
+    //   },
+    //   {
+    //     $lookup: {
+    //       from: "products",
+    //       localField: "product",
+    //       foreignField: "_id",
+    //       as: "productDetails",
+    //     },
+    //   },
+    //   { $unwind: "$productDetails" },
+    //   { $match: { "productDetails.isArchive": false } },
+    //   {
+    //     $group: {
+    //       _id: "$sellerStoreDetails._id",
+    //       sellerStore: { $first: "$sellerStoreDetails" }
+    //     },
+    //   },
+    //   // Flatten sellerStore data
+    //   {
+    //     $replaceRoot: { newRoot: "$sellerStore" }
+    //   },
+    //   { $sort: { createdAt: -1 } },
+    //   { $limit: 10 },
+    //   {
+    //     $project: {
+    //       _id: 1,
+    //       seller: 1,
+    //       name: 1,
+    //       slug: 1,
+    //       email: 1,
+    //       mobile: 1,
+    //       city: 1,
+    //       state: 1,
+    //       zipCode: 1,
+    //       street: 1,
+    //       image: 1,
+    //       bannerImage: 1,
+    //       coordinates: 1,
+    //       startTime: 1,
+    //       endTime: 1,
+    //       isArchive: 1,
+    //       isVerified: 1,
+    //       permittedToSellApparel: 1,
+    //       type: 1,
+    //     },
+    //   },
+    // ]);
+
     const uniqueStores = await SellerStoreProduct.aggregate([
       {
         $lookup: {
@@ -144,14 +207,30 @@ const getHomePageData = asyncHandler(async (req, res) => {
       { $unwind: "$productDetails" },
       { $match: { "productDetails.isArchive": false } },
       {
-        $group: {
-          _id: "$sellerStoreDetails._id",
-          sellerStore: { $first: "$sellerStoreDetails" }
+        $lookup: {
+          from: "sellers", // Assuming the collection name is 'sellers'
+          localField: "sellerStoreDetails.seller", // Adjust field name as needed
+          foreignField: "_id",
+          as: "sellerDetails",
         },
       },
-      // Flatten sellerStore data
+      { $unwind: "$sellerDetails" },
+      {
+        $match: {
+          "sellerDetails.isArchive": false, // Ensure seller is not archived
+        },
+      },
+      {
+        $group: {
+          _id: "$sellerStoreDetails._id",
+          sellerStore: { $first: "$sellerStoreDetails" },
+          // seller: { $first: "$sellerDetails" }, // Get seller details
+        },
+      },
+      // Flatten sellerStore and seller data
       {
         $replaceRoot: { newRoot: "$sellerStore" }
+        // $replaceRoot: { newRoot: { $mergeObjects: ["$sellerStore", "$seller"] } }
       },
       { $sort: { createdAt: -1 } },
       { $limit: 10 },
@@ -179,6 +258,8 @@ const getHomePageData = asyncHandler(async (req, res) => {
         },
       },
     ]);
+    
+
 
     // Helper function to fetch products based on type
     const fetchProducts = async (type) => {

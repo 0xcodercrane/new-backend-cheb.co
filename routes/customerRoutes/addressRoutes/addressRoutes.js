@@ -15,7 +15,7 @@ addressRoutes.route('/getSingleAddress/:id').get(protectForCustomer,getSingleAdd
 addressRoutes.route('/get-carrier-charge').post(protectForCustomer,getCarrierCharge);
 
 //Easy-post tracking.
-addressRoutes.route("tracking-shipping/easypost-webhook").post(updateDeliveryStatus);
+addressRoutes.route("/tracking-shipping/easypost-webhook").post(updateDeliveryStatus);
 
 
 

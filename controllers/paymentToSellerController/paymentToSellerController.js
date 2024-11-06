@@ -151,7 +151,7 @@ export const linkSellerAccount = asyncHandler(async (req, res) => {
         let updatedData;
         
         // isPaymentConfig?.status === "COMPLETED"
-        if (true) {
+        if (isPaymentConfig?.status === "COMPLETED") {
             // Update existing payment configuration
             updatedData = await PaymentAccountLinkModel.findOneAndUpdate(
                 { sellerId },

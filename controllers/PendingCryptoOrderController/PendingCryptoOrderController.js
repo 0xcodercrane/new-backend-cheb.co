@@ -15,6 +15,7 @@ import { sendPaymentInfoEmail } from "#config/email/emailFormats/sendPaymentInfo
 
 import BoughtTogetherModel from "#models/productModel/boughtTogetherModel.js";
 
+
 const addPendingCryptoOder = asyncHandler(async (req, res) => {
   const {
     store,
@@ -71,6 +72,7 @@ const getSinglePendingCryptoOrder = asyncHandler(async (req, res) => {
 
   res.status(200).send(pendingCryptoOrder);
 });
+
 
 const createOrderByCrpyto = asyncHandler(async (req, res) => {
   const {

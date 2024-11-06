@@ -169,7 +169,7 @@ const loginSeller = asyncHandler(async (req, res) => {
    // check seller is verified
    if (seller.isArchive) {
     res.status(400);
-    throw new Error("Seller is restricted by Admin");
+    throw new Error("Your account is restricted. Please contact the admin for assistance.");
   }
 
  
