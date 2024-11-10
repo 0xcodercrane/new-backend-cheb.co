@@ -90,6 +90,7 @@ const createOrderByCrpyto = asyncHandler(async (req, res) => {
     pickupDate,
     pickupTime,
     pickupType,
+    transactionHash
   } = req.body;
 
   const newOderData = {
@@ -104,6 +105,7 @@ const createOrderByCrpyto = asyncHandler(async (req, res) => {
     pickupType,
     pickupDate,
     pickupTime,
+    transactionHash
   };
   if (address) {
     newOderData.address = address;

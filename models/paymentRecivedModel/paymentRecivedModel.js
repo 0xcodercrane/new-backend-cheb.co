@@ -20,8 +20,14 @@ const paymentRecivedSchema = Schema(
     },
     transactionId: {
       type: String,
-      required: true,
+      required: false,
     },
+
+    transactionHash :{
+      type: String,
+      required: false,
+    },
+
     amount: {
       type: Number,
       required: true,

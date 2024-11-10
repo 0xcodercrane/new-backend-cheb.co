@@ -4,6 +4,7 @@ import {
   createMobileOrder,
   createOrderByCrpyto,
   createOrderByStripePayment,
+  createOrderHash,
   createPaymentIntent,
   dispatchStripeSaveCard,
   getCustomerStripeId,
@@ -17,11 +18,16 @@ const paymentRoutes = Router();
 paymentRoutes.route("/").post(protectForCustomer, paymentIntent);
 paymentRoutes.route("/mobile").post(protectForCustomer, createPaymentIntent);
 
+paymentRoutes.route("/createHash").post(protectForCustomer, createOrderHash);
+
 
 
 paymentRoutes
   .route("/createOrderByCrpyto")
   .post(protectForCustomer, createOrderByCrpyto);
+
+  
+
 // paymentRoutes.route("/createOrderByStripePayment",createOrderByStripePayment)
 paymentRoutes
   .route("/createOrderByStripePayment")

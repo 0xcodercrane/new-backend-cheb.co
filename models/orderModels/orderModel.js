@@ -116,6 +116,9 @@ const orderSchema = Schema(
     pickupTime: {
       type: String,
     },
+    transactionHash:{
+      type: String,
+    }
   },
   {
     timestamps: true,

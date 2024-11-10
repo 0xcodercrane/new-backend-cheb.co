@@ -15,6 +15,9 @@ import Seller from "#models/userModels/sellerModel/sellerModel.js";
 import SellerStoreProductSize from "#models/productModel/sellerStoreProductSizeModel.js";
 import SellerStore from "#models/userModels/sellerModel/sellerStoreModel/sellerStoreModel.js";
 import axios from "axios";
+import { StatusCodes } from "http-status-codes";
+import { ResponseMessage } from "#controllers/utils/ResponseMessage.js";
+import crypto from 'crypto';
 
 const paymentIntent = asyncHandler(async (req, res) => {
   globals.unset("orderData");
@@ -641,7 +644,8 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
     const rateId = JSON.stringify({
       "rate": {
         "id": shipmentResponse.data.rates[0].id
-      }})
+      }
+    })
 
     const trackingCodeResponse = await axios.request({
       ...axiosConfig,
@@ -649,12 +653,12 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
       data: rateId,
     });
 
-    console.log("trackingCodeResponse",trackingCodeResponse)
+    console.log("trackingCodeResponse", trackingCodeResponse)
 
     if (trackingCodeResponse.data) {
       await Order.findByIdAndUpdate(order._id, {
         // trackingCodeResponse.data.tracking_code
-        trackingCode:"EZ2000000002" ,
+        trackingCode: "EZ2000000002",
       });
       console.log(
         "EasyPost tracking code get:",
@@ -668,7 +672,7 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
     const trackingData = JSON.stringify({
       tracker: {
         // trackingCodeResponse.data.tracking_code
-        tracking_code:"EZ2000000002",
+        tracking_code: "EZ2000000002",
         carrier: shipmentResponse.data.rates[0].carrier,
       },
     });
@@ -685,7 +689,7 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
         trackingId: trackingResponse.data.id,
         trackingUrl: trackingResponse.data.public_url,
         // trackingResponse.data.tracking_code,
-        trackingCode: "EZ2000000002" 
+        trackingCode: "EZ2000000002"
       });
       console.log(
         "EasyPost tracking created with ID:",
@@ -769,140 +773,299 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
 
 
 
+async function createShipment(orderData, findCustomerInfo, customerAddress, storeInfo, order, axiosConfig) {
+  // Initialize total parcel dimensions and weight
+  let totalHeight = 0;
+  let totalWeight = 0;
+  let totalLength = 0;
+  let totalWidth = 0;
+
+  // Calculate total dimensions and weight from cart items
+  orderData.cartItems.forEach((cartItem) => {
+    totalHeight += cartItem.sizeData.height || 0;
+    totalWeight += cartItem.sizeData.weight || 0;
+    totalLength += cartItem.sizeData.length || 0;
+    totalWidth += cartItem.sizeData.width || 0;
+  });
+
+  // Shipment data configuration
+  const shipmentData = JSON.stringify({
+    shipment: {
+      to_address: {
+        name: findCustomerInfo?.name,
+        street1: customerAddress.street,
+        city: customerAddress.city,
+        state: customerAddress.state,
+        zip: customerAddress.zipCode,
+        email: findCustomerInfo?.email,
+      },
+      from_address: {
+        name: "EasyPost",
+        street1: storeInfo?.street,
+        street2: storeInfo?.street2,
+        city: storeInfo?.city,
+        state: storeInfo?.state,
+        zip: storeInfo?.zipCode,
+        phone: storeInfo?.mobile,
+        email: storeInfo?.email,
+      },
+      parcel: {
+        length: totalLength,
+        width: totalWidth,
+        height: totalHeight,
+        weight: totalWeight,
+      },
+    },
+  });
+
+  try {
+    // Send shipment creation request to EasyPost
+    const shipmentResponse = await axios.request({
+      ...axiosConfig,
+      url: `${process.env.EASY_POST_BASE_URL}/${process.env.EASY_POST_API_VERSION}/shipments`,
+      data: shipmentData,
+    });
+
+    // If shipment is successfully created, update the order with shipment ID
+    if (shipmentResponse.data) {
+      await Order.findByIdAndUpdate(order._id, {
+        shipmentId: shipmentResponse.data.id,
+      });
+      console.log("EasyPost shipment created with ID:", shipmentResponse.data.id);
+    }
+    return shipmentResponse.data
+  } catch (error) {
+    console.error("Error creating EasyPost shipment:", error);
+  }
+}
+
+
+async function createShipmentTracking(rateIds, orderId, axiosConfig, shippingId, carrier) {
+  try {
+    const rateId = JSON.stringify({
+      rate: {
+        id: rateIds,
+      },
+    });
+
+    const trackingCodeResponse = await axios.request({
+      ...axiosConfig,
+      url: `${process.env.EASY_POST_BASE_URL}/${process.env.EASY_POST_API_VERSION}/shipments/${shippingId}/buy`,
+      data: rateId,
+    });
+
+    // Update order with tracking code if available
+    if (trackingCodeResponse.data) {
+      // const trackingCode = trackingCodeResponse.data.tracking_code || "EZ2000000002"; // Default for testing
+      const trackingCode = "EZ7000000007"; // Default for testing
+      await Order.findByIdAndUpdate(orderId, {
+        trackingCode,
+      });
+
+      // Tracking data configuration
+      const trackingData = JSON.stringify({
+        tracker: {
+          tracking_code: trackingCode,
+          carrier: carrier,
+        },
+      });
+
+
+      // Tracking creation request
+      const trackingResponse = await axios.request({
+        ...axiosConfig,
+        url: `${process.env.EASY_POST_BASE_URL}/${process.env.EASY_POST_API_VERSION}/trackers`,
+        data: trackingData,
+      });
+
+      if (trackingResponse.data) {
+        // Update order with tracker ID and URL
+        await Order.findByIdAndUpdate(orderId, {
+          trackingId: trackingResponse.data.id,
+          trackingUrl: trackingResponse.data.public_url,
+        });
+        console.log("EasyPost tracking created with ID:", trackingResponse.data.id);
+      }
+    }
+  } catch (error) {
+    console.error("Error creating shipment tracking:", error);
+  }
+}
+
+
+
+
 
 const createOrderByCrpyto = asyncHandler(async (req, res) => {
-  const {
-    address,
-    // purchasePrice,
-    // processingFee,
-    // authenticationFee,
-    shippingFee,
-    tax,
-    discount,
-    // deliveryFee,
-    subtotal,
-    total,
-    cartItems,
-    store,
-    seller,
-    transactionId,
-    selectedOption,
-    pickupDate,
-    pickupTime,
-  } = req.body;
 
-  const newOderData = {
-    // purchasePrice,
-    // processingFee,
-    // authenticationFee,
-    shippingFee,
-    // discount,
-    tax,
-    // deliveryFee,
-    subtotal,
-    total,
-    store,
-    customer: req.customer._id,
-    orderStatus: "processing",
-    paymentMethod: "Crypto",
-    pickupType: selectedOption,
-    pickupDate,
-    pickupTime,
-  };
-  if (address) {
-    newOderData.address = address;
-  }
+  try {
+    let {
+      address,
+      // purchasePrice,
+      // processingFee,
+      // authenticationFee,
+      shippingFee,
+      tax,
+      discount,
+      // deliveryFee,
+      subtotal,
+      total,
+      cartItems,
+      store,
+      seller,
+      transactionId,
+      selectedOption,
+      pickupDate,
+      pickupTime,
+      createOrderHash
+    } = req.body;
 
-  const order = await Order.create(newOderData);
+    let newOderData = {
+      // purchasePrice,
+      // processingFee,
+      // authenticationFee,
+      shippingFee,
+      // discount,
+      tax,
+      // deliveryFee,
+      subtotal,
+      total,
+      store,
+      customer: req.customer._id,
+      orderStatus: "processing",
+      paymentMethod: "Crypto",
+      pickupType: selectedOption,
+      pickupDate,
+      pickupTime,
+      transactionHash: createOrderHash
+    };
+    if (address) {
+      newOderData.address = address;
+    }
 
-  const orderItemsFromCart = cartItems.map(
-    (i) => (i = { ...i, order: order._id })
-  );
-  const createdOrderItems = await OrderItem.insertMany(orderItemsFromCart);
+    const order = await Order.create(newOderData);
 
-  const createPaymentRecived = await PaymentRecieve.create({
-    order: order._id,
-    amount: subtotal,
-    store: store,
-    seller: seller,
-    transactionId: transactionId,
-  });
+    const orderItemsFromCart = cartItems.map(
+      (i) => (i = { ...i, order: order._id })
+    );
+    const createdOrderItems = await OrderItem.insertMany(orderItemsFromCart);
 
-  createdOrderItems.forEach(async (orderItem) => {
-    await SellerStoreProductSize.findByIdAndUpdate(orderItem.size, {
-      $inc: { stock: -orderItem.quantity },
+    const createPaymentRecived = await PaymentRecieve.create({
+      order: order._id,
+      amount: subtotal,
+      store: store,
+      seller: seller,
+      transactionId: transactionId,
+      transactionHash: createOrderHash
     });
-  });
-  const customerInfo = await Customer.findOne({ _id: req.customer._id });
 
-  let customerAddress;
-  if (address) {
-    customerAddress = await Address.findOne({ _id: address });
-  }
+    createdOrderItems.forEach(async (orderItem) => {
+      await SellerStoreProductSize.findByIdAndUpdate(orderItem.size, {
+        $inc: { stock: -orderItem.quantity },
+      });
+    });
+    const customerInfo = await Customer.findOne({ _id: req.customer._id });
 
-  sendPaymentInfoEmail(customerInfo?.email, customerInfo, cartItems, {
-    // processingFee,
-    shippingFee,
-    // authenticationFee,
-    tax,
-    // discount,
-    orderId: order?._id,
-    paymentMethod: order.paymentMethod,
-    orderDate: order.createdAt,
-    customerAddress,
-    pickupDate,
-    pickupTime,
-    pickupType: selectedOption,
-    total,
-  });
+    let customerAddress;
+    if (address) {
+      customerAddress = await Address.findOne({ _id: address });
+    }
 
-  const singleSeller = await Seller.findById(cartItems[0].seller);
+    //Easy Post 
+    let findCustomerInfo = await Customer.findOne({
+      _id: customerAddress?.customer,
+    });
 
-  await orderEmailToSeller(
-    singleSeller.email,
-    cartItems,
-    customerInfo,
-    customerAddress,
-    pickupDate,
-    pickupTime,
-    selectedOption,
-    (subtotal = newOderData?.subtotal)
-  );
-  // Create bought together
-  let existingRecommendation;
+    const storeInfo = await SellerStore.findOne({ _id: store });
 
-  if (cartItems.length > 1) {
-    for (let i = 0; i < cartItems.length; i++) {
-      for (let j = 0; j < cartItems.length; j++) {
-        existingRecommendation = await BoughtTogetherModel.findOne({
-          primaryId: cartItems[i].item,
-          secondaryId: cartItems[j].item,
-        });
 
-        if (existingRecommendation) {
-          await BoughtTogetherModel.findOneAndUpdate(
-            {
-              primaryId: cartItems[i].item,
-              secondaryId: cartItems[j].item,
-            },
-            {
-              $inc: { count: 1 },
-            },
-            { new: true }
-          );
-        } else {
-          if (i !== j) {
-            await BoughtTogetherModel.create({
-              primaryId: cartItems[i].item,
-              secondaryId: cartItems[j].item,
-            });
+
+    // Common Axios configuration
+    const axiosConfig = {
+      method: "post",
+      maxBodyLength: Infinity,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.EASY_POST_API_KEY}`,
+      },
+    };
+
+
+
+    let shippingResponse = await createShipment(req.body, findCustomerInfo, customerAddress, storeInfo, order?._id, axiosConfig);
+
+    createShipmentTracking(await shippingResponse.rates[0].id, order?._id, axiosConfig, await shippingResponse.id, await shippingResponse.rates[0].carrier)
+
+    // sendPaymentInfoEmail(customerInfo?.email, customerInfo, cartItems, {
+    //   // processingFee,
+    //   shippingFee,
+    //   // authenticationFee,
+    //   tax,
+    //   // discount,
+    //   orderId: order?._id,
+    //   paymentMethod: order.paymentMethod,
+    //   orderDate: order.createdAt,
+    //   customerAddress,
+    //   pickupDate,
+    //   pickupTime,
+    //   pickupType: selectedOption,
+    //   total,
+    // });
+
+    const singleSeller = await Seller.findById(cartItems[0].seller);
+
+    await orderEmailToSeller(
+      singleSeller.email,
+      cartItems,
+      customerInfo,
+      customerAddress,
+      pickupDate,
+      pickupTime,
+      selectedOption,
+      (subtotal = newOderData?.subtotal)
+    );
+    // Create bought together
+    let existingRecommendation;
+
+    if (cartItems.length > 1) {
+      for (let i = 0; i < cartItems.length; i++) {
+        for (let j = 0; j < cartItems.length; j++) {
+          existingRecommendation = await BoughtTogetherModel.findOne({
+            primaryId: cartItems[i].item,
+            secondaryId: cartItems[j].item,
+          });
+
+          if (existingRecommendation) {
+            await BoughtTogetherModel.findOneAndUpdate(
+              {
+                primaryId: cartItems[i].item,
+                secondaryId: cartItems[j].item,
+              },
+              {
+                $inc: { count: 1 },
+              },
+              { new: true }
+            );
+          } else {
+            if (i !== j) {
+              await BoughtTogetherModel.create({
+                primaryId: cartItems[i].item,
+                secondaryId: cartItems[j].item,
+              });
+            }
           }
         }
       }
     }
+
+    res.status(201).json({ order, orderItemsFromCart, createPaymentRecived });
+
+  } catch (error) {
+    console.log("error", error)
+
   }
 
-  res.status(201).json({ order, orderItemsFromCart, createPaymentRecived });
+
 });
 
 const getCustomerStripeId = asyncHandler(async (req, res) => {
@@ -1031,6 +1194,28 @@ const singleSellerTotalPaidValue = asyncHandler(async (req, res) => {
     console.error(error);
     res.status(500).json({ message: "Error fetching sum" });
   }
+});
+
+export const createOrderHash = asyncHandler(async (req, res) => {
+  try {
+    let { productId } = req.body;
+    const timestamp = Date.now().toString();
+    const data = productId + timestamp;
+
+    // Create SHA-256 hash
+    const hash = crypto.createHash('sha256').update(data).digest('hex');
+    return res.status(StatusCodes.OK).json({
+      data: hash,
+    });
+
+  } catch (err) {
+    console.log("err", err)
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      message: ResponseMessage.INTERNAL_SERVER_ERROR,
+      data: err.message,
+    });
+  }
+
 });
 
 export {
