@@ -583,119 +583,128 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
       totalWidth += cartItem.sizeData.width || 0;
     });
 
-    // Shipment data configuration
-    const shipmentData = JSON.stringify({
-      shipment: {
-        to_address: {
-          name: findCustomerInfo?.name,
-          street1: customerAddress.street,
-          city: customerAddress.city,
-          state: customerAddress.state,
-          zip: customerAddress.zipCode,
-          email: findCustomerInfo?.email,
-        },
-        from_address: {
-          name: "EasyPost",
-          street1: storeInfo?.street,
-          street2: storeInfo?.street2,
-          city: storeInfo?.city,
-          state: storeInfo?.state,
-          zip: storeInfo?.zipCode,
-          phone: storeInfo?.mobile,
-          email: storeInfo?.email,
-        },
-        parcel: {
-          length: totalLength,
-          width: totalWidth,
-          height: totalHeight,
-          weight: totalWeight,
-        },
-      },
-    });
+    if (orderData.address) {
 
-    // Common Axios configuration
-    const axiosConfig = {
-      method: "post",
-      maxBodyLength: Infinity,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.EASY_POST_API_KEY}`,
-      },
-    };
-
-    const shipmentResponse = await axios.request({
-      ...axiosConfig,
-      url: `${process.env.EASY_POST_BASE_URL}/${process.env.EASY_POST_API_VERSION}/shipments`,
-      data: shipmentData,
-    });
-
-    if (shipmentResponse.data) {
-      await Order.findByIdAndUpdate(order._id, {
-        shipmentId: shipmentResponse.data.id,
+      // Shipment data configuration
+      const shipmentData = JSON.stringify({
+        shipment: {
+          to_address: {
+            name: findCustomerInfo?.name,
+            street1: customerAddress.street,
+            city: customerAddress.city,
+            state: customerAddress.state,
+            zip: customerAddress.zipCode,
+            email: findCustomerInfo?.email,
+          },
+          from_address: {
+            name: "EasyPost",
+            street1: storeInfo?.street,
+            street2: storeInfo?.street2,
+            city: storeInfo?.city,
+            state: storeInfo?.state,
+            zip: storeInfo?.zipCode,
+            phone: storeInfo?.mobile,
+            email: storeInfo?.email,
+          },
+          parcel: {
+            length: totalLength,
+            width: totalWidth,
+            height: totalHeight,
+            weight: totalWeight,
+          },
+        },
       });
-      console.log(
-        "EasyPost shipment created with ID:",
-        shipmentResponse.data.id
-      );
-    }
 
-    //getting tracking_code by shipmentId
+      // Common Axios configuration
+      const axiosConfig = {
+        method: "post",
+        maxBodyLength: Infinity,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.EASY_POST_API_KEY}`,
+        },
+      };
 
-    const rateId = JSON.stringify({
-      "rate": {
-        "id": shipmentResponse.data.rates[0].id
+      const shipmentResponse = await axios.request({
+        ...axiosConfig,
+        url: `${process.env.EASY_POST_BASE_URL}/${process.env.EASY_POST_API_VERSION}/shipments`,
+        data: shipmentData,
+      });
+
+      if (shipmentResponse.data) {
+        await Order.findByIdAndUpdate(order._id, {
+          shipmentId: shipmentResponse.data.id,
+        });
+        console.log(
+          "EasyPost shipment created with ID:",
+          shipmentResponse.data.id
+        );
       }
-    })
 
-    const trackingCodeResponse = await axios.request({
-      ...axiosConfig,
-      url: `${process.env.EASY_POST_BASE_URL}/${process.env.EASY_POST_API_VERSION}/shipments/${shipmentResponse.data.id}/buy`,
-      data: rateId,
-    });
+      //getting tracking_code by shipmentId
 
-    console.log("trackingCodeResponse", trackingCodeResponse)
+      const rateId = JSON.stringify({
+        "rate": {
+          "id": shipmentResponse.data.rates[0].id
+        }
+      })
 
-    if (trackingCodeResponse.data) {
-      await Order.findByIdAndUpdate(order._id, {
-        // trackingCodeResponse.data.tracking_code
-        trackingCode: "EZ2000000002",
+      const trackingCodeResponse = await axios.request({
+        ...axiosConfig,
+        url: `${process.env.EASY_POST_BASE_URL}/${process.env.EASY_POST_API_VERSION}/shipments/${shipmentResponse.data.id}/buy`,
+        data: rateId,
       });
-      console.log(
-        "EasyPost tracking code get:",
-        trackingCodeResponse.data.tracking_code
-      );
+
+      // console.log("trackingCodeResponse", trackingCodeResponse)
+
+      if (trackingCodeResponse.data) {
+        await Order.findByIdAndUpdate(order._id, {
+          // trackingCodeResponse.data.tracking_code
+          trackingCode: "EZ2000000002",
+        });
+        console.log(
+          "EasyPost tracking code get:",
+          trackingCodeResponse.data.tracking_code
+        );
+      }
+
+
+
+      // Tracking data configuration
+      const trackingData = JSON.stringify({
+        tracker: {
+          // trackingCodeResponse.data.tracking_code
+          tracking_code: "EZ2000000002",
+          carrier: shipmentResponse.data.rates[0].carrier,
+        },
+      });
+
+      // Tracking creation request
+      const trackingResponse = await axios.request({
+        ...axiosConfig,
+        url: `${process.env.EASY_POST_BASE_URL}/${process.env.EASY_POST_API_VERSION}/trackers`,
+        data: trackingData,
+      });
+
+      if (trackingResponse.data) {
+        await Order.findByIdAndUpdate(order._id, {
+          trackingId: trackingResponse.data.id,
+          trackingUrl: trackingResponse.data.public_url,
+          // trackingResponse.data.tracking_code,
+          trackingCode: "EZ2000000002"
+        });
+        console.log(
+          "EasyPost tracking created with ID:",
+          trackingResponse.data.id
+        );
+      }
+
     }
 
 
 
-    // Tracking data configuration
-    const trackingData = JSON.stringify({
-      tracker: {
-        // trackingCodeResponse.data.tracking_code
-        tracking_code: "EZ2000000002",
-        carrier: shipmentResponse.data.rates[0].carrier,
-      },
-    });
 
-    // Tracking creation request
-    const trackingResponse = await axios.request({
-      ...axiosConfig,
-      url: `${process.env.EASY_POST_BASE_URL}/${process.env.EASY_POST_API_VERSION}/trackers`,
-      data: trackingData,
-    });
 
-    if (trackingResponse.data) {
-      await Order.findByIdAndUpdate(order._id, {
-        trackingId: trackingResponse.data.id,
-        trackingUrl: trackingResponse.data.public_url,
-        // trackingResponse.data.tracking_code,
-        trackingCode: "EZ2000000002"
-      });
-      console.log(
-        "EasyPost tracking created with ID:",
-        trackingResponse.data.id
-      );
-    }
 
     await sendPaymentInfoEmail(customerInfo?.email, customerInfo, cartItems, {
       // processingFee,

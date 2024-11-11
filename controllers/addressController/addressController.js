@@ -12,9 +12,11 @@ import stripe from 'stripe';
 const stripeInstance = stripe('sk_test_51PRAwuBY5VOE3pmxe6shSx1OUU3WiTLudojkBgh2k2bIii9kx27QLx255vsDjO0gURPmSlK6KKEIjCPE0niQShiM009AfpfH9y'); //vishal sir
 const apiKey = 'sk_test_51PRAwuBY5VOE3pmxe6shSx1OUU3WiTLudojkBgh2k2bIii9kx27QLx255vsDjO0gURPmSlK6KKEIjCPE0niQShiM009AfpfH9y';
 const encodedApiKey = Buffer.from(apiKey).toString('base64');
+import { platformConfirmDelivery } from '../../hooks/chebpayments/ChebPaymentHooks.js'
+
 import { ethers } from 'ethers';
 
-import abi from '../../utils/abi.json' assert { type: 'json' };
+// import abi from '../../utils/abi.json' assert { type: 'json' };
 
 // Get All Addresses
 const getAllAddresses = asyncHandler(async (req, res) => {
@@ -227,40 +229,40 @@ export const getCarrierCharge = asyncHandler(async (req, res) => {
 })
 
 
-async function platformConfirmDelivery(orderHash) {
-    try {
+// async function platformConfirmDelivery(orderHash) {
+//     try {
 
-        //Crypto 
-        const RPC_URL = process.env.SKALE_TESTNET_RPC;
-        const CONTRACT_ADDRESS = process.env.SKALE_CHEB_PAYMENTS;
-        const provider = new ethers.JsonRpcProvider(RPC_URL);
-        const platformWallet = new ethers.Wallet(process.env.PLATFORM_PRIVATE_KEY, provider);
+//         //Crypto 
+//         const RPC_URL = process.env.SKALE_TESTNET_RPC;
+//         const CONTRACT_ADDRESS = process.env.SKALE_CHEB_PAYMENTS;
+//         const provider = new ethers.JsonRpcProvider(RPC_URL);
+//         const platformWallet = new ethers.Wallet(process.env.PLATFORM_PRIVATE_KEY, provider);
 
 
-        const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, platformWallet);
+//         const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, platformWallet);
 
-        const gasEstimate = await contract.confirmDelivery.estimateGas(orderHash);
-        console.log("Estimated gas for delivery confirmation:", gasEstimate.toString());
+//         const gasEstimate = await contract.confirmDelivery.estimateGas(orderHash);
+//         console.log("Estimated gas for delivery confirmation:", gasEstimate.toString());
 
-        const tx = await contract.confirmDelivery(
-            orderHash,
-            {
-                gasLimit: Math.ceil(gasEstimate * 1.2) // Add 20% buffer
-            }
-        );
+//         const tx = await contract.confirmDelivery(
+//             orderHash,
+//             {
+//                 gasLimit: Math.ceil(gasEstimate * 1.2) // Add 20% buffer
+//             }
+//         );
 
-        const receipt = await tx.wait();
+//         const receipt = await tx.wait();
 
-        return {
-            success: true,
-            transactionHash: tx.hash,
-            orderHash
-        };
-    } catch (err) {
-        console.error("Error confirming delivery:", err);
-        return { success: false, error: err };
-    }
-};
+//         return {
+//             success: true,
+//             transactionHash: tx.hash,
+//             orderHash
+//         };
+//     } catch (err) {
+//         console.error("Error confirming delivery:", err);
+//         return { success: false, error: err };
+//     }
+// };
 
 
 async function updateTrackingStatusInDB(trackingCode, status, trackingDetails) {
@@ -311,7 +313,7 @@ async function updateTrackingStatusInDB(trackingCode, status, trackingDetails) {
         }
         else {
         //   const {success, orderHash, transactionHash} =  platformConfirmDelivery(trackingRecord.transactionHash);
-          const {success, orderHash, transactionHash} =  platformConfirmDelivery("0x54d7620e98b20324432284fd36430af48615a27a0e9055de5f0ae8efd0068866");
+          const {success, orderHash, transactionHash} =  platformConfirmDelivery("0x731a2c03896a3acbd69f8600990e15640f85c31cf6708717da40d995b573235f");
 
             console.log("success315",success, orderHash, transactionHash)
         }
