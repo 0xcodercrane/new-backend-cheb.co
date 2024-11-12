@@ -123,6 +123,6 @@ a[x-apple-data-detectors] {
  </body>
 </html>
   `;
-
+console.log("forgot mail")
   await sendEmailWithResend(recepient, 'Reset Forgotten Password', message);
 }

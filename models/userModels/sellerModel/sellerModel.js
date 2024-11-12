@@ -18,9 +18,24 @@ const sellerSchema = Schema(
     type: {
       type: String,
       required: [true, "Please Add a type"],
-      enum: ["Sneaker Store", "Independent Reseller"],
+      enum: ["Sneaker Store", "Independent Reseller","Local Fashion Brand","Other"],
     },
     phoneNumber: {
+      type: String,
+    },
+    bussinessName: {
+      type: String,
+    },
+    bussinessAddress: {
+      type: String,
+    },
+    websiteUrl: {
+      type: String,
+    },
+    socialMediaLink: {
+      type: String,
+    },
+    otherType: {
       type: String,
     },
     dp: {
@@ -41,7 +56,7 @@ const sellerSchema = Schema(
     },
     isArchive:{
       type: Boolean,
-      default: false,
+      default: true,
     },
   },
   {

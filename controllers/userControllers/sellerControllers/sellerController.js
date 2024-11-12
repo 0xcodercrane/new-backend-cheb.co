@@ -21,7 +21,8 @@ const getSingleSeller = asyncHandler(async (req, res) => {
 
 // Register Seller
 const registerSeller = asyncHandler(async (req, res) => {
-  const { name, email, password, address, phoneNumber,type } = req.body;
+  // console.log(req.body);return false;
+  const { name, email, password, address, phoneNumber,type,bussinessName,bussinessAddress,websiteUrl,socialMediaLink,otherType } = req.body;
   if (!name || !email || !password) {
     res.status(400);
     throw new Error("Please add all fields");
@@ -80,7 +81,13 @@ const registerSeller = asyncHandler(async (req, res) => {
     password: hashedPassword,
     dp: dpUrl,
     type,
-    sellerAliasId: newSellerAliasId 
+    sellerAliasId: newSellerAliasId,
+    bussinessName,
+    bussinessAddress,
+    websiteUrl,
+    socialMediaLink,
+    otherType,
+    isArchive:true, 
   });
 
   if (seller) {

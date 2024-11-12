@@ -10,8 +10,10 @@ export async function sendEmailWithResend(recipients, subject, emailBody) {
     subject,
     html: emailBody,
   })
+  console.log(`Email sent: ${data.id}`)
 
   if (error) {
+    console.log("mail error :", error)
     return console.error({ error })
   }
 
