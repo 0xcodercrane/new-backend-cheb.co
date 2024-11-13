@@ -10,6 +10,7 @@ import { deleteObject, uploadObject } from "../../config/space.js";
 import SellerStoreProduct from "#models/productModel/sellerStoreProductModel.js";
 import Color from "#models/colorModel/colorModel.js";
 import ProductRequestModel from "#models/productModel/productRequest.js";
+import mongoose from "mongoose";
 
 //Get All products
 
@@ -506,12 +507,52 @@ const getSingleProduct = asyncHandler(async (req, res) => {
   res.status(200).json({ singleProduct, colors });
 });
 
+// const getSingleProductBySlug = asyncHandler(async (req, res) => {
+//   const { slug } = req.params;
+//   const singleP = await Product.findOne({ slug });
+
+//   res.status(200).json(singleP);
+// });
+
 const getSingleProductBySlug = asyncHandler(async (req, res) => {
   const { slug } = req.params;
-  const singleP = await Product.findOne({ slug });
 
-  res.status(200).json(singleP);
+  // Fetch the product by slug
+  const product = await Product.findOne({ slug });
+
+  if (product) {
+    let result = product.toObject(); // Convert product to plain object
+
+    // Check if colorWay has values and attempt to fetch color names
+    if (product.colorWay && product.colorWay.length > 0) {
+      try {
+        // Parse the JSON string inside colorWay array to extract an array of color IDs
+        const colorIds = JSON.parse(product.colorWay[0]).map(id => new mongoose.Types.ObjectId(id));
+        console.log(colorIds,"colorIds")
+
+        // Fetch colors based on the parsed color IDs
+        const colors = await Color.find({ _id: { $in: colorIds } }, { name: 1 });
+        console.log(colors,"colors")
+        // Extract color names from the color documents and add them as an array
+        result.colorway = colors.map(color => color.name);
+      } catch (error) {
+        console.error("Error parsing colorWay or fetching colors:", error);
+        // If there's an error in fetching colors, fallback to the original colorWay field
+        result.colorway = product.colorWay;
+      }
+    } else {
+      // If colorWay is empty, set colorway to an empty array
+      result.colorway = [];
+    }
+
+    // Return the product with the color names in colorway
+    return res.status(200).json(result);
+  } 
+
+  // Handle the case where the product is not found
+  return res.status(404).json({ message: "Product not found" });
 });
+
 
 const updateSingleProduct = asyncHandler(async (req, res) => {
   try {

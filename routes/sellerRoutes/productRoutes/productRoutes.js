@@ -34,7 +34,9 @@ import { Router } from "express";
 
 const productRoutes = Router();
 
-productRoutes.get("/getAllProduct", getAllProduct);
+// productRoutes.get("/getAllProduct", getAllProduct);
+productRoutes.route("/").post(setProduct).get(getAllProduct);
+
 productRoutes.get("/getAllStoreProduct", getAllStoreProduct);
 
 productRoutes.get("/getSellerStoreProductByType", getSellerStoreProductsByType);
