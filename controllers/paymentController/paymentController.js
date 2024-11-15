@@ -148,7 +148,7 @@ const paymentIntent = asyncHandler(async (req, res) => {
 
   try {
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
+      payment_method_types: ["card","crypto"],
       line_items: lineItems,
       mode: "payment",
       customer: customerId,
@@ -295,7 +295,7 @@ const createPaymentIntent = asyncHandler(async (req, res) => {
       currency: "usd",
       customer: customerId,
       setup_future_usage: "off_session",
-      payment_method_types: ["card"],
+      payment_method_types: ["card","crypto"],
       receipt_email: req.customer.email,
       metadata: {
         customerId: customerId,
