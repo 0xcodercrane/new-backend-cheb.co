@@ -202,7 +202,7 @@ const getSellerAllStoresById = asyncHandler(async (req, res) => {
 
 const getSellerSingleStore = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const store = await SellerStore.findById(id).populate("seller");
+  const store = await SellerStore.findById(id).populate("seller","-password");
   res.status(200).json(store);
 });
 

@@ -24,7 +24,7 @@ const { sign, verify } = jwt
 const registerCustomer = asyncHandler(async (req, res) => {
 
   try {
-    const { name, email, password, mobile, isProductInCart } = req.body;
+    const { name, email, password, mobile, isProductInCart, address } = req.body;
     // const { dp } = req?.files
 
     console.log("user data: ", req?.body)
@@ -70,17 +70,21 @@ const registerCustomer = asyncHandler(async (req, res) => {
     const customer = await Customer.create({
       name,
       email,
+      address,
       ...(mobile !== undefined && { mobile }),
       password: hashedPassword,
       ...(dpUrl !== undefined && { dp: dpUrl }),
     });
 
+   //Convert in Boolean.
+   const isProductInCartBoolean = isProductInCart === "true";
 
-    
-    // !isProductInCart && customer
     const token = generateToken(customer._id);
-    if (!isProductInCart && customer) {
 
+
+
+    if (!isProductInCartBoolean && customer) {
+      console.log("87","if")
       const link = process.env.CONSUMER_APP_LINK + "verifyEmail/" + token;
 
       const description =
@@ -100,7 +104,8 @@ const registerCustomer = asyncHandler(async (req, res) => {
       });
     }
     // 
-    else if (isProductInCart && customer) {
+    else if (isProductInCartBoolean && customer) {
+      console.log("87","else")
       const OTP = generateOtp();
       const description =
         `We have received a request to verify your email address for your seller account. Please use the following OTP to complete your email verification.`;

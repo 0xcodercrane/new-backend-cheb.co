@@ -20,6 +20,11 @@ const customerSchema = Schema({
         unique: true,
        
     },
+    address:{
+        type: String,
+        required : false
+
+    },
     dp: {
         type: String
     },
