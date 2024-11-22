@@ -102,13 +102,16 @@ import { json } from "express";
 
 const getHomePageData = asyncHandler(async (req, res) => {
   try {
-    const { brand, gender, color, minPrice, maxPrice, condition, size, apparelSizes, category } = req.query;
+    const { brand, gender, color, minPrice, maxPrice, condition, size, apparelSizes, category, search } = req.query;
 
     const brandArray = Array.isArray(brand) ? brand : (brand ? JSON.parse(brand) : []);
     const conditionArray = Array.isArray(condition) ? condition : (condition ? JSON.parse(condition) : []);
     const sizeArray = Array.isArray(size) ? size : (size ? JSON.parse(size) : []);
     const apparelSizeArray = Array.isArray(apparelSizes) ? apparelSizes : (apparelSizes ? JSON.parse(apparelSizes) : []);
     const colorsArray = Array.isArray(color) ? color : (color ? JSON.parse(color) : []);
+    const searchQuery = search ? search.trim() : "";
+
+    console.log("brandArray",brandArray, typeof search, search)
 
     // Fetch latest non-archived stores
     const stores = await SellerStore.find({ isArchive: false })
@@ -180,6 +183,7 @@ const getHomePageData = asyncHandler(async (req, res) => {
     //   },
     // ]);
 
+    console.log("search",search)
     const uniqueStores = await SellerStoreProduct.aggregate([
       {
         $lookup: {
@@ -220,6 +224,15 @@ const getHomePageData = asyncHandler(async (req, res) => {
           "sellerDetails.isArchive": false, // Ensure seller is not archived
         },
       },
+      // $regex: new RegExp(search, "i") }
+      {
+        $match: {
+          $or: [
+            { "sellerStoreDetails.name": { $regex: searchQuery, $options: "i" } },
+          ],
+        },
+      },
+
       {
         $group: {
           _id: "$sellerStoreDetails._id",
@@ -344,6 +357,15 @@ const getHomePageData = asyncHandler(async (req, res) => {
         // Apply filters based on query parameter.
         {
           $match: {
+            ...(search && {
+              $or: [
+                { "productDetails.name": { $regex: searchQuery, $options: "i" } },
+                { "productDetails.category": { $regex: searchQuery, $options: "i" } },
+                { "productDetails.colorInfo.name": { $regex: searchQuery, $options: "i" } },
+                { "sizeInfo.name": { $regex: searchQuery, $options: "i" } },
+                { "productDetails.retailCost": { $eq: Number(search) } }, 
+              ],
+            }),
             // Gender filter (exact match, no $or needed)
             ...(gender && { "sizeDetails.gender": { $regex: new RegExp(gender, 'i') } }),
 
