@@ -56,7 +56,7 @@ const orderSchema = Schema(
     },
     trackingId :{
       Type:String      
-    },
+    },  
 
     trackingUrl :{
       Type:String      

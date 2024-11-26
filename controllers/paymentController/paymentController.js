@@ -148,7 +148,8 @@ const paymentIntent = asyncHandler(async (req, res) => {
 
   try {
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card","crypto"],
+      payment_method_types: ["card"],  
+      // crypto
       line_items: lineItems,
       mode: "payment",
       customer: customerId,
@@ -660,7 +661,7 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
       if (trackingCodeResponse.data) {
         await Order.findByIdAndUpdate(order._id, {
           // trackingCodeResponse.data.tracking_code
-          trackingCode: "EZ2000000002",
+          trackingCode: "EZ1000000001",
         });
         console.log(
           "EasyPost tracking code get:",
@@ -674,7 +675,7 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
       const trackingData = JSON.stringify({
         tracker: {
           // trackingCodeResponse.data.tracking_code
-          tracking_code: "EZ2000000002",
+          tracking_code: "EZ1000000001",
           carrier: shipmentResponse.data.rates[0].carrier,
         },
       });
@@ -691,7 +692,7 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
           trackingId: trackingResponse.data.id,
           trackingUrl: trackingResponse.data.public_url,
           // trackingResponse.data.tracking_code,
-          trackingCode: "EZ2000000002"
+          trackingCode: "EZ1000000001"
         });
         console.log(
           "EasyPost tracking created with ID:",

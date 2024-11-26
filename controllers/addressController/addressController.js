@@ -210,7 +210,7 @@ export const getCarrierCharge = asyncHandler(async (req, res) => {
             data: data
         };
         let response = await axios.request(config);
-        
+
         const lowestRate = filterRatesByDeliveryDays(response.data.rates, deliveryDays);
 
         return res.status(StatusCodes.OK).json({
@@ -265,10 +265,11 @@ export const getCarrierCharge = asyncHandler(async (req, res) => {
 // };
 
 
-async function updateTrackingStatusInDB(trackingCode, status, trackingDetails) {
+async function updateTrackingStatusInDB(trackingCode, status, trackingDetails, shipment_id) {
     try {
         // Find the tracking record in the database based on tracking code
-        const trackingRecord = await orderModel.findOne({ trackingCode });
+        // trackingCode
+        const trackingRecord = await orderModel.findOne({ shipmentId: shipment_id });
 
         if (!trackingRecord) {
             console.log('Tracking record not found');
@@ -280,10 +281,11 @@ async function updateTrackingStatusInDB(trackingCode, status, trackingDetails) {
 
         await trackingRecord.save();
 
+        console.log("284", trackingRecord.orderStatus == "delivered" && trackingRecord.paymentMethod == "Stripe")
+
         if (trackingRecord.orderStatus == "delivered" && trackingRecord.paymentMethod == "Stripe") {
 
             const amountInCents = Math.round(trackingRecord.subtotal * 100);
-
 
             const [findSellerStore] = await Promise.all([
                 sellerStoreModel.findOne({ _id: trackingRecord.store }),
@@ -311,13 +313,17 @@ async function updateTrackingStatusInDB(trackingCode, status, trackingDetails) {
             }
 
         }
-        else {
-        //   const {success, orderHash, transactionHash} =  platformConfirmDelivery(trackingRecord.transactionHash);
-          const {success, orderHash, transactionHash} =  platformConfirmDelivery("0x731a2c03896a3acbd69f8600990e15640f85c31cf6708717da40d995b573235f");
 
-            console.log("success315",success, orderHash, transactionHash)
+        if (trackingRecord.paymentMethod == "Crypto") {
+            //   const {success, orderHash, transactionHash} =  platformConfirmDelivery(trackingRecord.transactionHash);
+            const { success, orderHash, transactionHash } = platformConfirmDelivery("0x731a2c03896a3acbd69f8600990e15640f85c31cf6708717da40d995b573235f");
+
+            console.log("success315", success, orderHash, transactionHash)
+            console.log(`Tracking status updated for ${trackingCode}: ${status}`);
+
         }
-        console.log(`Tracking status updated for ${trackingCode}: ${status}`);
+
+
     } catch (error) {
         console.error('Error updating tracking status:', error);
     }
@@ -325,96 +331,98 @@ async function updateTrackingStatusInDB(trackingCode, status, trackingDetails) {
 
 
 export const updateDeliveryStatus = asyncHandler(async (req, res) => {
-    // const { result } = req.body;
+    const { result } = req.body;
+
+    console.log("webHookCalling", req.body, result);
 
     // console.log("tracking order", req.body)
-    const result = {
-        "id": "trk_02711510c1c84ed2ad3571a2f96d1176",
-        "object": "Tracker",
-        "mode": "test",
-        "tracking_code": "EZ7000000007",
-        "status": "delivered",
-        "status_detail": "status_update",
-        "created_at": "2024-10-25T06:01:00Z",
-        "updated_at": "2024-10-25T06:01:00Z",
-        "signed_by": null,
-        "weight": null,
-        "est_delivery_date": "2024-10-25T06:01:00Z",
-        "shipment_id": null,
-        "carrier": "USPS",
-        "tracking_details": [
-            {
-                "object": "TrackingDetail",
-                "message": "Pre-Shipment Info Sent to USPS",
-                "description": "",
-                "status": "pre_transit",
-                "status_detail": "status_update",
-                "datetime": "2024-09-25T06:01:00Z",
-                "source": "USPS",
-                "carrier_code": "",
-                "tracking_location": {
-                    "object": "TrackingLocation",
-                    "city": null,
-                    "state": null,
-                    "country": null,
-                    "zip": null
-                }
-            },
-            {
-                "object": "TrackingDetail",
-                "message": "Shipping Label Created",
-                "description": "",
-                "status": "pre_transit",
-                "status_detail": "status_update",
-                "datetime": "2024-09-25T18:38:00Z",
-                "source": "USPS",
-                "carrier_code": "",
-                "tracking_location": {
-                    "object": "TrackingLocation",
-                    "city": "HOUSTON",
-                    "state": "TX",
-                    "country": null,
-                    "zip": "77063"
-                }
-            }
-        ],
-        "fees": [
-            {
-                "object": "Fee",
-                "type": "TrackerFee",
-                "amount": "0.00000",
-                "charged": true,
-                "refunded": false
-            }
-        ],
-        "carrier_detail": {
-            "object": "CarrierDetail",
-            "service": "First-Class Package Service",
-            "container_type": null,
-            "est_delivery_date_local": null,
-            "est_delivery_time_local": null,
-            "origin_location": "HOUSTON TX, 77001",
-            "origin_tracking_location": {
-                "object": "TrackingLocation",
-                "city": "HOUSTON",
-                "state": "TX",
-                "country": null,
-                "zip": "77063"
-            },
-            "destination_location": "CHARLESTON SC, 29401",
-            "destination_tracking_location": null,
-            "guaranteed_delivery_date": null,
-            "alternate_identifier": null,
-            "initial_delivery_attempt": null
-        },
-        "public_url": "https://track.easypost.com/djE6dHJrXzAyNzExNTEwYzFjODRlZDJhZDM1NzFhMmY5NmQxMTc2"
-    }
+    // const result = {
+    //     "id": "trk_02711510c1c84ed2ad3571a2f96d1176",
+    //     "object": "Tracker",
+    //     "mode": "test",
+    //     "tracking_code": "EZ7000000007",
+    //     "status": "delivered",
+    //     "status_detail": "status_update",
+    //     "created_at": "2024-10-25T06:01:00Z",
+    //     "updated_at": "2024-10-25T06:01:00Z",
+    //     "signed_by": null,
+    //     "weight": null,
+    //     "est_delivery_date": "2024-10-25T06:01:00Z",
+    //     "shipment_id": null,
+    //     "carrier": "USPS",
+    //     "tracking_details": [
+    //         {
+    //             "object": "TrackingDetail",
+    //             "message": "Pre-Shipment Info Sent to USPS",
+    //             "description": "",
+    //             "status": "pre_transit",
+    //             "status_detail": "status_update",
+    //             "datetime": "2024-09-25T06:01:00Z",
+    //             "source": "USPS",
+    //             "carrier_code": "",
+    //             "tracking_location": {
+    //                 "object": "TrackingLocation",
+    //                 "city": null,
+    //                 "state": null,
+    //                 "country": null,
+    //                 "zip": null
+    //             }
+    //         },
+    //         {
+    //             "object": "TrackingDetail",
+    //             "message": "Shipping Label Created",
+    //             "description": "",
+    //             "status": "pre_transit",
+    //             "status_detail": "status_update",
+    //             "datetime": "2024-09-25T18:38:00Z",
+    //             "source": "USPS",
+    //             "carrier_code": "",
+    //             "tracking_location": {
+    //                 "object": "TrackingLocation",
+    //                 "city": "HOUSTON",
+    //                 "state": "TX",
+    //                 "country": null,
+    //                 "zip": "77063"
+    //             }
+    //         }
+    //     ],
+    //     "fees": [
+    //         {
+    //             "object": "Fee",
+    //             "type": "TrackerFee",
+    //             "amount": "0.00000",
+    //             "charged": true,
+    //             "refunded": false
+    //         }
+    //     ],
+    //     "carrier_detail": {
+    //         "object": "CarrierDetail",
+    //         "service": "First-Class Package Service",
+    //         "container_type": null,
+    //         "est_delivery_date_local": null,
+    //         "est_delivery_time_local": null,
+    //         "origin_location": "HOUSTON TX, 77001",
+    //         "origin_tracking_location": {
+    //             "object": "TrackingLocation",
+    //             "city": "HOUSTON",
+    //             "state": "TX",
+    //             "country": null,
+    //             "zip": "77063"
+    //         },
+    //         "destination_location": "CHARLESTON SC, 29401",
+    //         "destination_tracking_location": null,
+    //         "guaranteed_delivery_date": null,
+    //         "alternate_identifier": null,
+    //         "initial_delivery_attempt": null
+    //     },
+    //     "public_url": "https://track.easypost.com/djE6dHJrXzAyNzExNTEwYzFjODRlZDJhZDM1NzFhMmY5NmQxMTc2"
+    // }
 
     if (result && result.object === "Tracker") {
-        const { tracking_code, status, tracking_details } = result;
+        const { tracking_code, status, tracking_details, shipment_id } = result;
 
         // Update your database with the tracking status
-        updateTrackingStatusInDB(tracking_code, status, tracking_details);
+        updateTrackingStatusInDB(tracking_code, status, tracking_details, shipment_id);
 
         res.status(200).send("Webhook received");
     } else {
