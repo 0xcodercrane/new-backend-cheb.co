@@ -111,7 +111,7 @@ const getHomePageData = asyncHandler(async (req, res) => {
     const colorsArray = Array.isArray(color) ? color : (color ? JSON.parse(color) : []);
     const searchQuery = search ? search.trim() : "";
 
-    console.log("brandArray",brandArray, typeof search, search)
+    console.log("brandArray", brandArray, typeof search, search)
 
     // Fetch latest non-archived stores
     const stores = await SellerStore.find({ isArchive: false })
@@ -183,7 +183,7 @@ const getHomePageData = asyncHandler(async (req, res) => {
     //   },
     // ]);
 
-    console.log("search",search)
+    console.log("search", search)
     const uniqueStores = await SellerStoreProduct.aggregate([
       {
         $lookup: {
@@ -271,7 +271,7 @@ const getHomePageData = asyncHandler(async (req, res) => {
         },
       },
     ]);
-    
+
 
 
     // Helper function to fetch products based on type
@@ -325,14 +325,14 @@ const getHomePageData = asyncHandler(async (req, res) => {
         {
           $lookup: {
             from: "colors",
-            localField: "productDetails.colorWay", 
+            localField: "productDetails.colorWay",
             foreignField: "_id",
             as: "colorInfo",
           },
         },
         {
           $addFields: {
-            "productDetails.colorInfo": "$colorInfo", 
+            "productDetails.colorInfo": "$colorInfo",
           },
         },
 
@@ -363,7 +363,7 @@ const getHomePageData = asyncHandler(async (req, res) => {
                 { "productDetails.category": { $regex: searchQuery, $options: "i" } },
                 { "productDetails.colorInfo.name": { $regex: searchQuery, $options: "i" } },
                 { "sizeInfo.name": { $regex: searchQuery, $options: "i" } },
-                { "productDetails.retailCost": { $eq: Number(search) } }, 
+                { "productDetails.retailCost": { $eq: Number(search) } },
               ],
             }),
             // Gender filter (exact match, no $or needed)
@@ -417,8 +417,8 @@ const getHomePageData = asyncHandler(async (req, res) => {
             }),
           },
         },
-        
-        
+
+
         {
           $group: {
             _id: "$productDetails._id",
@@ -429,8 +429,8 @@ const getHomePageData = asyncHandler(async (req, res) => {
             colorInfo: { $first: "$productDetails.colorInfo" },
             name: { $first: '$productDetails.name' },
             cardImage: { $first: '$productDetails.cardImage' },
-            slug:{$first:'$productDetails.slug'},
-            sellerStore:{$first:'$productDetails.sellerStore'}
+            slug: { $first: '$productDetails.slug' },
+            sellerStore: { $first: '$productDetails.sellerStore' }
 
 
           },
@@ -463,13 +463,13 @@ const getHomePageData = asyncHandler(async (req, res) => {
 
 const getHomePageSearchData = asyncHandler(async (req, res) => {
   try {
-    const {search } = req.query;
+    const { search } = req.query;
     const searchQuery = search ? search.trim() : "";
 
     // Fetch latest non-archived stores
     const stores = await SellerStore.find({ isArchive: false })
       .sort({ createdAt: -1 })
-      .limit(10);
+      .limit(5);
 
     const storeIds = stores.map(store => store._id);
 
@@ -535,7 +535,7 @@ const getHomePageSearchData = asyncHandler(async (req, res) => {
         // $replaceRoot: { newRoot: { $mergeObjects: ["$sellerStore", "$seller"] } }
       },
       { $sort: { createdAt: -1 } },
-      { $limit: 10 },
+      { $limit: 5 },
       {
         $project: {
           _id: 1,
@@ -544,7 +544,7 @@ const getHomePageSearchData = asyncHandler(async (req, res) => {
         },
       },
     ]);
-    
+
     // Helper function to fetch products based on type
     const fetchProducts = async (type) => {
       return await SellerStoreProduct.aggregate([
@@ -596,14 +596,14 @@ const getHomePageSearchData = asyncHandler(async (req, res) => {
         {
           $lookup: {
             from: "colors",
-            localField: "productDetails.colorWay", 
+            localField: "productDetails.colorWay",
             foreignField: "_id",
             as: "colorInfo",
           },
         },
         {
           $addFields: {
-            "productDetails.colorInfo": "$colorInfo", 
+            "productDetails.colorInfo": "$colorInfo",
           },
         },
 
@@ -634,17 +634,255 @@ const getHomePageSearchData = asyncHandler(async (req, res) => {
                 { "productDetails.category": { $regex: searchQuery, $options: "i" } },
                 { "productDetails.colorInfo.name": { $regex: searchQuery, $options: "i" } },
                 { "sizeInfo.name": { $regex: searchQuery, $options: "i" } },
-                { "productDetails.retailCost": { $eq: Number(search) } }, 
+                { "productDetails.retailCost": { $eq: Number(search) } },
               ],
             }),
           },
         },
-        
-        
+
+        {
+          $group: {
+            _id: { $substr: ["$productDetails.name", 0, 5] }, // Group by the first 15 characters of the name
+            product_name: { $first: "$productDetails.name" }, // Include the first product name in the group
+            product_id: { $first: "$productDetails._id" },
+            product_cardImage: { $first: "$productDetails.cardImage" },
+            // representativeProduct: { $first: "$$ROOT" }, // Pick the first product in each group
+          },
+        },
+
+
+        // {
+        //   $group: {
+        //     _id: "$productDetails._id",
+        //     product_name: { $first: "$productDetails.name" },
+        //   },
+        // },
+        { $sort: { createdAt: -1 } },
+        { $limit: 5 }
+      ]);
+    };
+
+    // Fetch sneakers and apparel products
+    const [sneakers, apparel, allProducts] = await Promise.all([
+      fetchProducts("sneaker"),
+      fetchProducts("apparel"),
+      fetchProducts()
+    ]);
+
+    // Construct the home data response
+    const homeData = {
+      stores: uniqueStores,
+      sneakers,
+      apparel,
+      products: allProducts,
+    };
+
+    const allData = [...homeData.stores, ...homeData.sneakers, ...homeData.apparel, ...homeData.products];
+    const limitedData = allData.slice(0, 10);
+    const uniqueProducts = [];
+    const seenProductIds = new Set();
+
+    limitedData.forEach((item) => {
+      const productId = item.product_id !==undefined ? item?.product_id.toString() : item?._id.toString();
+      if (!seenProductIds.has(productId)) {
+        uniqueProducts.push(item);
+        seenProductIds.add(productId);
+      }
+    });
+    res.status(200).json(uniqueProducts);
+  } catch (error) {
+    console.error("Error fetching home page data:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+const getSearchListData = asyncHandler(async (req, res) => {
+  try {
+    const { search, tabName } = req.query;
+    const searchQuery = search ? search.trim() : "";
+
+    // Fetch latest non-archived stores
+    const stores = await SellerStore.find({ isArchive: false })
+      .sort({ createdAt: -1 })
+      .limit(5);
+
+    const storeIds = stores.map(store => store._id);
+
+    const uniqueStores = await SellerStoreProduct.aggregate([
+      {
+        $lookup: {
+          from: "sellerstores",
+          localField: "sellerStore",
+          foreignField: "_id",
+          as: "sellerStoreDetails",
+        },
+      },
+      { $unwind: "$sellerStoreDetails" },
+      {
+        $match: {
+          "sellerStoreDetails.isArchive": false,
+          isActive: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "products",
+          localField: "product",
+          foreignField: "_id",
+          as: "productDetails",
+        },
+      },
+      { $unwind: "$productDetails" },
+      { $match: { "productDetails.isArchive": false } },
+      {
+        $lookup: {
+          from: "sellers", 
+          localField: "sellerStoreDetails.seller", 
+          foreignField: "_id",
+          as: "sellerDetails",
+        },
+      },
+      { $unwind: "$sellerDetails" },
+      {
+        $match: {
+          "sellerDetails.isArchive": false, 
+        },
+      },
+      {
+        $match: {
+          $or: [
+            // { "sellerStoreDetails.name": `^${searchQuery.slice(0, 3)}$`, $options: "i" } 
+            //  $regex: `^${searchQuery.slice(0, 3)}`,
+            // `^${searchQuery}{3}$`,
+
+            { "sellerStoreDetails.name": { $regex: searchQuery, $options: "i" } },
+          ],
+        },
+      },
+
+      {
+        $group: {
+          _id: "$sellerStoreDetails._id",
+          sellerStore: { $first: "$sellerStoreDetails" },
+          // seller: { $first: "$sellerDetails" }, // Get seller details
+        },
+      },
+      // Flatten sellerStore and seller data
+      {
+        $replaceRoot: { newRoot: "$sellerStore" }
+        // $replaceRoot: { newRoot: { $mergeObjects: ["$sellerStore", "$seller"] } }
+      },
+      { $sort: { createdAt: -1 } },
+      {
+        $project: {
+          _id: 1,
+          seller: 1,
+          name: 1,
+        },
+      },
+    ]);
+
+    // Helper function to fetch products based on type
+    const fetchProducts = async (type) => {
+      return await SellerStoreProduct.aggregate([
+        {
+          $match: {
+            ...(type && { type }),
+            isActive: true,
+            sellerStore: { $in: storeIds },
+          },
+        },
+        {
+          $lookup: {
+            from: "products",
+            localField: "product",
+            foreignField: "_id",
+            as: "productDetails",
+          },
+        },
+        { $unwind: "$productDetails" },
+        { $match: { "productDetails.isArchive": false } },
+        {
+          $addFields: {
+            "productDetails.colorWay": {
+              $filter: {
+                input: "$productDetails.colorWay",
+                as: "colorId",
+                cond: {
+                  $and: [
+                    { $eq: [{ $type: "$$colorId" }, "string"] },
+                    { $eq: [{ $strLenCP: "$$colorId" }, 24] }, // Ensure valid ObjectId length
+                  ],
+                },
+              },
+            },
+          },
+        },
+        // Convert valid strings to ObjectIds
+        {
+          $addFields: {
+            "productDetails.colorWay": {
+              $map: {
+                input: "$productDetails.colorWay",
+                as: "colorId",
+                in: { $toObjectId: "$$colorId" }, // Convert to ObjectId
+              },
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: "colors",
+            localField: "productDetails.colorWay",
+            foreignField: "_id",
+            as: "colorInfo",
+          },
+        },
+        {
+          $addFields: {
+            "productDetails.colorInfo": "$colorInfo",
+          },
+        },
+
+        {
+          $lookup: {
+            from: "sellerstoreproductsizes",
+            localField: "_id",
+            foreignField: "sellerStoreProduct",
+            as: "sizeDetails",
+          },
+        },
+        { $unwind: "$sizeDetails" },
+        {
+          $lookup: {
+            from: "sizes",
+            localField: "sizeDetails.size",
+            foreignField: "_id",
+            as: "sizeInfo",
+          },
+        },
+        { $unwind: "$sizeInfo" },
+        // Apply filters based on query parameter.
+        {
+          $match: {
+            ...(search && {
+              $or: [
+                { "productDetails.name": { $regex: searchQuery, $options: "i" } },
+                { "productDetails.category": { $regex: searchQuery, $options: "i" } },
+                { "productDetails.colorInfo.name": { $regex: searchQuery, $options: "i" } },
+                { "sizeInfo.name": { $regex: searchQuery, $options: "i" } },
+                { "productDetails.retailCost": { $eq: Number(search) } },
+              ],
+            }),
+          },
+        },
         {
           $group: {
             _id: "$productDetails._id",
             product_name: { $first: "$productDetails.name" },
+            cardImage: { $first: '$productDetails.cardImage' },
+            retailCost: { $first: '$productDetails.retailCost' },
+            slug: { $first: '$productDetails.slug' },
           },
         },
         { $sort: { createdAt: -1 } },
@@ -667,7 +905,27 @@ const getHomePageSearchData = asyncHandler(async (req, res) => {
     };
 
     const allData = [...homeData.stores, ...homeData.sneakers, ...homeData.apparel, ...homeData.products];
-    res.status(200).json(allData);
+
+    console.log("tabName", typeof tabName, tabName)
+
+    let finalData = [];
+    switch (tabName) {
+      case "1":
+        finalData = allData.filter((data) => data.product_name !== undefined);
+        break;
+      case "2":
+        finalData = allData.filter((data) => data.seller !== undefined);
+        break;
+      case "3":
+        finalData = allData.filter((data) => data.retailCost !== undefined && data.retailCost !== null)
+          .sort((a, b) => a.retailCost - b.retailCost);
+        break;
+      default:
+        finalData = allData;
+        break;
+    }
+
+    res.status(200).json(finalData);
   } catch (error) {
     console.error("Error fetching home page data:", error);
     res.status(500).json({ message: "Internal server error" });
@@ -676,4 +934,4 @@ const getHomePageSearchData = asyncHandler(async (req, res) => {
 
 
 
-export { getHomePageData, getHomePageSearchData };
+export { getHomePageData, getHomePageSearchData, getSearchListData };
