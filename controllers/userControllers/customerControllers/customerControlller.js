@@ -13,6 +13,7 @@ import { ResponseMessage } from '#controllers/utils/ResponseMessage.js';
 import { sendSellerOTPVerifyEmail } from '#config/email/emailFormats/sendOtpToSeller.js';
 import { generateOtp } from '#utils/helperFunction.js';
 import moment from "moment";
+import { notificationHelper } from '#controllers/utils/Notification.js';
 
 
 
@@ -76,15 +77,15 @@ const registerCustomer = asyncHandler(async (req, res) => {
       ...(dpUrl !== undefined && { dp: dpUrl }),
     });
 
-   //Convert in Boolean.
-   const isProductInCartBoolean = isProductInCart === "true";
+    //Convert in Boolean.
+    const isProductInCartBoolean = isProductInCart === "true";
 
     const token = generateToken(customer._id);
 
 
 
     if (!isProductInCartBoolean && customer) {
-      console.log("87","if")
+      console.log("87", "if")
       const link = process.env.CONSUMER_APP_LINK + "verifyEmail/" + token;
 
       const description =
@@ -105,7 +106,7 @@ const registerCustomer = asyncHandler(async (req, res) => {
     }
     // 
     else if (isProductInCartBoolean && customer) {
-      console.log("87","else")
+      console.log("87", "else")
       const OTP = generateOtp();
       const description =
         `We have received a request to verify your email address for your seller account. Please use the following OTP to complete your email verification.`;
@@ -240,7 +241,7 @@ const getSingleCustomer = asyncHandler(async (req, res) => {
 // Login customer
 const loginCustomer = asyncHandler(async (req, res) => {
 
-  const { email, password } = req.body
+  const { email, password, fcmtoken } = req.body
 
   // Check for customer email
   const customer = await Customer.findOne({ email })
@@ -249,10 +250,11 @@ const loginCustomer = asyncHandler(async (req, res) => {
     res.status(400)
     throw new Error('No customer found with this email')
   }
-
   // Check if password matches
 
   if (customer && (await compare(password, customer.password))) {
+    customer.fcmtoken = fcmtoken;
+    await customer.save();
     res.status(200).json({
       _id: customer.id,
       name: customer.name,

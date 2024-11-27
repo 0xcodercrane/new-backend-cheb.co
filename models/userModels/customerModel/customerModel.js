@@ -18,11 +18,11 @@ const customerSchema = Schema({
     mobile: {
         type: Number,
         unique: true,
-       
+
     },
-    address:{
+    address: {
         type: String,
-        required : false
+        required: false
 
     },
     dp: {
@@ -35,17 +35,22 @@ const customerSchema = Schema({
     dob: {
         type: Date
     },
-    otp :{
-        type : String,
-        default : null
+    otp: {
+        type: String,
+        default: null
     },
-    isOtpVerified:{
-        type : Boolean,
-        default : false
+    fcmtoken: {
+        type: String,
+        required: false,
+        default: null,
     },
-    isVerified : {
-        type : Boolean,
-        default : false
+    isOtpVerified: {
+        type: Boolean,
+        default: false
+    },
+    isVerified: {
+        type: Boolean,
+        default: false
     },
 }, {
     timestamps: true

@@ -13,8 +13,9 @@ const stripeInstance = stripe('sk_test_51PRAwuBY5VOE3pmxe6shSx1OUU3WiTLudojkBgh2
 const apiKey = 'sk_test_51PRAwuBY5VOE3pmxe6shSx1OUU3WiTLudojkBgh2k2bIii9kx27QLx255vsDjO0gURPmSlK6KKEIjCPE0niQShiM009AfpfH9y';
 const encodedApiKey = Buffer.from(apiKey).toString('base64');
 import { platformConfirmDelivery } from '../../hooks/chebpayments/ChebPaymentHooks.js'
-
-import { ethers } from 'ethers';
+import { notificationHelper } from '#controllers/utils/Notification.js';
+import { NotificationCreate } from '#utils/ApiService.js';
+import moment from 'moment';
 
 // import abi from '../../utils/abi.json' assert { type: 'json' };
 
@@ -280,8 +281,16 @@ async function updateTrackingStatusInDB(trackingCode, status, trackingDetails, s
         trackingRecord.tracking_details = trackingDetails;
 
         await trackingRecord.save();
+       
+        // Notification Shipment.
+        let title = 'Your Order',
+            body = `Your order (${trackingRecord?._id}) is now ${status}.`;
+          notificationHelper(trackingRecord?.customer, "Customer", "fcmtoken", title, body, moment(new Date()).format("YYYY-MM-DD"),
+            moment(new Date()).format("HH:mm"));
 
-        console.log("284", trackingRecord.orderStatus == "delivered" && trackingRecord.paymentMethod == "Stripe")
+        //Notification Created.
+        NotificationCreate(title, body, "customerId", trackingRecord?.customer, "orderId", trackingRecord?._id);
+
 
         if (trackingRecord.orderStatus == "delivered" && trackingRecord.paymentMethod == "Stripe") {
 

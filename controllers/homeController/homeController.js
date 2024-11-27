@@ -6,6 +6,10 @@ import ProductSize from "#models/sizeModel/productSizeModel.js";
 import SellerStore from "#models/userModels/sellerModel/sellerStoreModel/sellerStoreModel.js";
 import asyncHandler from "express-async-handler";
 import { json } from "express";
+import customerModel from "#models/userModels/customerModel/customerModel.js";
+import { StatusCodes } from "http-status-codes";
+import { ResponseMessage } from "#controllers/utils/ResponseMessage.js";
+import NotificationModel from "#models/notificationModel/notificationModel.js";
 
 // const getHomePageData = asyncHandler(async (req, res) => {
 //   try {
@@ -465,6 +469,7 @@ const getHomePageSearchData = asyncHandler(async (req, res) => {
   try {
     const { search } = req.query;
     const searchQuery = search ? search.trim() : "";
+    console.log(searchQuery,472)
 
     // Fetch latest non-archived stores
     const stores = await SellerStore.find({ isArchive: false })
@@ -678,12 +683,12 @@ const getHomePageSearchData = asyncHandler(async (req, res) => {
     };
 
     const allData = [...homeData.stores, ...homeData.sneakers, ...homeData.apparel, ...homeData.products];
-    const limitedData = allData.slice(0, 10);
+    const limitedData = allData.slice(0, 5);
     const uniqueProducts = [];
     const seenProductIds = new Set();
 
     limitedData.forEach((item) => {
-      const productId = item.product_id !==undefined ? item?.product_id.toString() : item?._id.toString();
+      const productId = item.product_id !== undefined ? item?.product_id.toString() : item?._id.toString();
       if (!seenProductIds.has(productId)) {
         uniqueProducts.push(item);
         seenProductIds.add(productId);
@@ -736,8 +741,8 @@ const getSearchListData = asyncHandler(async (req, res) => {
       { $match: { "productDetails.isArchive": false } },
       {
         $lookup: {
-          from: "sellers", 
-          localField: "sellerStoreDetails.seller", 
+          from: "sellers",
+          localField: "sellerStoreDetails.seller",
           foreignField: "_id",
           as: "sellerDetails",
         },
@@ -745,7 +750,7 @@ const getSearchListData = asyncHandler(async (req, res) => {
       { $unwind: "$sellerDetails" },
       {
         $match: {
-          "sellerDetails.isArchive": false, 
+          "sellerDetails.isArchive": false,
         },
       },
       {
@@ -933,5 +938,44 @@ const getSearchListData = asyncHandler(async (req, res) => {
 });
 
 
+const getNotifications = async (req, res) => {
+  try {
+    const { customerId } = req.query;
+    console.log("customerId",customerId)
+    if (!customerId) {
+      return res.status(400).json({
+        status: StatusCodes.BAD_REQUEST,
+        message: ResponseMessage.USER_NOT_EXIST,
+        data: null,
+      });
+    }
 
-export { getHomePageData, getHomePageSearchData, getSearchListData };
+    let findCustomer = await customerModel.findOne({ _id: customerId });
+
+    if (!findCustomer) {
+      return res.status(400).json({
+        status: StatusCodes.BAD_REQUEST,
+        message: ResponseMessage.USER_NOT_EXIST,
+        data: null,
+      });
+    }
+
+    const query = {
+      isDeleted: false,
+      customerId: findCustomer?._id
+    }
+    const notificationLists = await NotificationModel.find(query).populate("customerId", "name email image").populate('orderId').sort({ createdAt: -1 }).limit(10);
+    res.status(200).json(notificationLists);
+
+  } catch (error) {
+    return res.status(500).json({
+      status: StatusCodes.INTERNAL_SERVER_ERROR,
+      message: ResponseMessage.INTERNAL_SERVER_ERROR,
+      data: error.message,
+    });
+  }
+}
+
+
+
+export { getHomePageData, getHomePageSearchData, getSearchListData, getNotifications };
