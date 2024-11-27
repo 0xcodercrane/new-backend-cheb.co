@@ -118,7 +118,71 @@ const getHomePageData = asyncHandler(async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(10);
 
+
     const storeIds = stores.map(store => store._id);
+
+    const uniqueStores = await SellerStoreProduct.aggregate([
+      {
+        $lookup: {
+          from: "sellerstores",
+          localField: "sellerStore",
+          foreignField: "_id",
+          as: "sellerStoreDetails",
+        },
+      },
+      { $unwind: "$sellerStoreDetails" },
+      {
+        $match: {
+          "sellerStoreDetails.isArchive": false,
+          isActive: true,
+        },
+      },
+      {
+        $lookup: {
+          from: "products",
+          localField: "product",
+          foreignField: "_id",
+          as: "productDetails",
+        },
+      },
+      { $unwind: "$productDetails" },
+      { $match: { "productDetails.isArchive": false } },
+      {
+        $group: {
+          _id: "$sellerStoreDetails._id",
+          sellerStore: { $first: "$sellerStoreDetails" }
+        },
+      },
+      // Flatten sellerStore data
+      {
+        $replaceRoot: { newRoot: "$sellerStore" }
+      },
+      { $sort: { createdAt: -1 } },
+      { $limit: 10 },
+      {
+        $project: {
+          _id: 1,
+          seller: 1,
+          name: 1,
+          slug: 1,
+          email: 1,
+          mobile: 1,
+          city: 1,
+          state: 1,
+          zipCode: 1,
+          street: 1,
+          image: 1,
+          bannerImage: 1,
+          coordinates: 1,
+          startTime: 1,
+          endTime: 1,
+          isArchive: 1,
+          isVerified: 1,
+          permittedToSellApparel: 1,
+          type: 1,
+        },
+      },
+    ]);
 
     // const uniqueStores = await SellerStoreProduct.aggregate([
     //   {
@@ -147,14 +211,39 @@ const getHomePageData = asyncHandler(async (req, res) => {
     //   { $unwind: "$productDetails" },
     //   { $match: { "productDetails.isArchive": false } },
     //   {
-    //     $group: {
-    //       _id: "$sellerStoreDetails._id",
-    //       sellerStore: { $first: "$sellerStoreDetails" }
+    //     $lookup: {
+    //       from: "sellers", // Assuming the collection name is 'sellers'
+    //       localField: "sellerStoreDetails.seller", // Adjust field name as needed
+    //       foreignField: "_id",
+    //       as: "sellerDetails",
     //     },
     //   },
-    //   // Flatten sellerStore data
+    //   { $unwind: "$sellerDetails" },
+    //   {
+    //     $match: {
+    //       "sellerDetails.isArchive": false, // Ensure seller is not archived
+    //     },
+    //   },
+    //   // $regex: new RegExp(search, "i") }
+    //   // {
+    //   //   $match: {
+    //   //     $or: [
+    //   //       { "sellerStoreDetails.name": { $regex: searchQuery, $options: "i" } },
+    //   //     ],
+    //   //   },
+    //   // },
+
+    //   {
+    //     $group: {
+    //       _id: "$sellerStoreDetails._id",
+    //       sellerStore: { $first: "$sellerStoreDetails" },
+    //       // seller: { $first: "$sellerDetails" }, // Get seller details
+    //     },
+    //   },
+    //   // Flatten sellerStore and seller data
     //   {
     //     $replaceRoot: { newRoot: "$sellerStore" }
+    //     // $replaceRoot: { newRoot: { $mergeObjects: ["$sellerStore", "$seller"] } }
     //   },
     //   { $sort: { createdAt: -1 } },
     //   { $limit: 10 },
@@ -182,95 +271,6 @@ const getHomePageData = asyncHandler(async (req, res) => {
     //     },
     //   },
     // ]);
-
-    console.log("search", search)
-    const uniqueStores = await SellerStoreProduct.aggregate([
-      {
-        $lookup: {
-          from: "sellerstores",
-          localField: "sellerStore",
-          foreignField: "_id",
-          as: "sellerStoreDetails",
-        },
-      },
-      { $unwind: "$sellerStoreDetails" },
-      {
-        $match: {
-          "sellerStoreDetails.isArchive": false,
-          isActive: true,
-        },
-      },
-      {
-        $lookup: {
-          from: "products",
-          localField: "product",
-          foreignField: "_id",
-          as: "productDetails",
-        },
-      },
-      { $unwind: "$productDetails" },
-      { $match: { "productDetails.isArchive": false } },
-      {
-        $lookup: {
-          from: "sellers", // Assuming the collection name is 'sellers'
-          localField: "sellerStoreDetails.seller", // Adjust field name as needed
-          foreignField: "_id",
-          as: "sellerDetails",
-        },
-      },
-      { $unwind: "$sellerDetails" },
-      {
-        $match: {
-          "sellerDetails.isArchive": false, // Ensure seller is not archived
-        },
-      },
-      // $regex: new RegExp(search, "i") }
-      {
-        $match: {
-          $or: [
-            { "sellerStoreDetails.name": { $regex: searchQuery, $options: "i" } },
-          ],
-        },
-      },
-
-      {
-        $group: {
-          _id: "$sellerStoreDetails._id",
-          sellerStore: { $first: "$sellerStoreDetails" },
-          // seller: { $first: "$sellerDetails" }, // Get seller details
-        },
-      },
-      // Flatten sellerStore and seller data
-      {
-        $replaceRoot: { newRoot: "$sellerStore" }
-        // $replaceRoot: { newRoot: { $mergeObjects: ["$sellerStore", "$seller"] } }
-      },
-      { $sort: { createdAt: -1 } },
-      { $limit: 10 },
-      {
-        $project: {
-          _id: 1,
-          seller: 1,
-          name: 1,
-          slug: 1,
-          email: 1,
-          mobile: 1,
-          city: 1,
-          state: 1,
-          zipCode: 1,
-          street: 1,
-          image: 1,
-          bannerImage: 1,
-          coordinates: 1,
-          startTime: 1,
-          endTime: 1,
-          isArchive: 1,
-          isVerified: 1,
-          permittedToSellApparel: 1,
-          type: 1,
-        },
-      },
-    ]);
 
 
 
@@ -357,15 +357,15 @@ const getHomePageData = asyncHandler(async (req, res) => {
         // Apply filters based on query parameter.
         {
           $match: {
-            ...(search && {
-              $or: [
-                { "productDetails.name": { $regex: searchQuery, $options: "i" } },
-                { "productDetails.category": { $regex: searchQuery, $options: "i" } },
-                { "productDetails.colorInfo.name": { $regex: searchQuery, $options: "i" } },
-                { "sizeInfo.name": { $regex: searchQuery, $options: "i" } },
-                { "productDetails.retailCost": { $eq: Number(search) } },
-              ],
-            }),
+            // ...(search && {
+            //   $or: [
+            //     { "productDetails.name": { $regex: searchQuery, $options: "i" } },
+            //     { "productDetails.category": { $regex: searchQuery, $options: "i" } },
+            //     { "productDetails.colorInfo.name": { $regex: searchQuery, $options: "i" } },
+            //     { "sizeInfo.name": { $regex: searchQuery, $options: "i" } },
+            //     { "productDetails.retailCost": { $eq: Number(search) } },
+            //   ],
+            // }),
             // Gender filter (exact match, no $or needed)
             ...(gender && { "sizeDetails.gender": { $regex: new RegExp(gender, 'i') } }),
 
