@@ -465,6 +465,9 @@ const getHomePageData = asyncHandler(async (req, res) => {
   }
 });
 
+
+
+
 const getHomePageSearchData = asyncHandler(async (req, res) => {
   try {
     const { search } = req.query;
