@@ -469,7 +469,7 @@ const getHomePageSearchData = asyncHandler(async (req, res) => {
   try {
     const { search } = req.query;
     const searchQuery = search ? search.trim() : "";
-    console.log(searchQuery,472)
+    console.log(searchQuery, 472)
 
     // Fetch latest non-archived stores
     const stores = await SellerStore.find({ isArchive: false })
@@ -611,31 +611,14 @@ const getHomePageSearchData = asyncHandler(async (req, res) => {
             "productDetails.colorInfo": "$colorInfo",
           },
         },
-
-        {
-          $lookup: {
-            from: "sellerstoreproductsizes",
-            localField: "_id",
-            foreignField: "sellerStoreProduct",
-            as: "sizeDetails",
-          },
-        },
-        { $unwind: "$sizeDetails" },
-        {
-          $lookup: {
-            from: "sizes",
-            localField: "sizeDetails.size",
-            foreignField: "_id",
-            as: "sizeInfo",
-          },
-        },
-        { $unwind: "$sizeInfo" },
         // Apply filters based on query parameter.
         {
           $match: {
             ...(search && {
               $or: [
-                { "productDetails.name": { $regex: searchQuery, $options: "i" } },
+                  
+                // { "productDetails.name": { $regex: `^${searchQuery}$`, $options: "i" } },
+                { "productDetails.name": { $regex: `^${searchQuery}`, $options: "i" } },
                 { "productDetails.category": { $regex: searchQuery, $options: "i" } },
                 { "productDetails.colorInfo.name": { $regex: searchQuery, $options: "i" } },
                 { "sizeInfo.name": { $regex: searchQuery, $options: "i" } },
@@ -647,21 +630,13 @@ const getHomePageSearchData = asyncHandler(async (req, res) => {
 
         {
           $group: {
-            _id: { $substr: ["$productDetails.name", 0, 5] }, // Group by the first 15 characters of the name
+            _id: { $substr: ["$productDetails.name", 0, 5] }, // Group by the first 5 characters of the name
             product_name: { $first: "$productDetails.name" }, // Include the first product name in the group
             product_id: { $first: "$productDetails._id" },
             product_cardImage: { $first: "$productDetails.cardImage" },
-            // representativeProduct: { $first: "$$ROOT" }, // Pick the first product in each group
+            _id: "$productDetails._id",
           },
         },
-
-
-        // {
-        //   $group: {
-        //     _id: "$productDetails._id",
-        //     product_name: { $first: "$productDetails.name" },
-        //   },
-        // },
         { $sort: { createdAt: -1 } },
         { $limit: 5 }
       ]);
@@ -706,12 +681,16 @@ const getSearchListData = asyncHandler(async (req, res) => {
     const { search, tabName } = req.query;
     const searchQuery = search ? search.trim() : "";
 
+    console.log("searchQuery",searchQuery)
+
     // Fetch latest non-archived stores
     const stores = await SellerStore.find({ isArchive: false })
       .sort({ createdAt: -1 })
       .limit(5);
 
+
     const storeIds = stores.map(store => store._id);
+
 
     const uniqueStores = await SellerStoreProduct.aggregate([
       {
@@ -849,34 +828,15 @@ const getSearchListData = asyncHandler(async (req, res) => {
           },
         },
 
-        {
-          $lookup: {
-            from: "sellerstoreproductsizes",
-            localField: "_id",
-            foreignField: "sellerStoreProduct",
-            as: "sizeDetails",
-          },
-        },
-        { $unwind: "$sizeDetails" },
-        {
-          $lookup: {
-            from: "sizes",
-            localField: "sizeDetails.size",
-            foreignField: "_id",
-            as: "sizeInfo",
-          },
-        },
-        { $unwind: "$sizeInfo" },
         // Apply filters based on query parameter.
         {
           $match: {
             ...(search && {
               $or: [
-                { "productDetails.name": { $regex: searchQuery, $options: "i" } },
-                { "productDetails.category": { $regex: searchQuery, $options: "i" } },
-                { "productDetails.colorInfo.name": { $regex: searchQuery, $options: "i" } },
-                { "sizeInfo.name": { $regex: searchQuery, $options: "i" } },
-                { "productDetails.retailCost": { $eq: Number(search) } },
+                { "productDetails.name": { $regex: `^${searchQuery}`, $options: "i" } },
+                // { "productDetails.category": { $regex: searchQuery, $options: "i" } },
+                // { "productDetails.colorInfo.name": { $regex: searchQuery, $options: "i" } },
+                // { "productDetails.retailCost": { $eq: Number(search) } },
               ],
             }),
           },
@@ -911,7 +871,6 @@ const getSearchListData = asyncHandler(async (req, res) => {
 
     const allData = [...homeData.stores, ...homeData.sneakers, ...homeData.apparel, ...homeData.products];
 
-    console.log("tabName", typeof tabName, tabName)
 
     let finalData = [];
     switch (tabName) {
@@ -919,7 +878,7 @@ const getSearchListData = asyncHandler(async (req, res) => {
         finalData = allData.filter((data) => data.product_name !== undefined);
         break;
       case "2":
-        finalData = allData.filter((data) => data.seller !== undefined);
+        finalData = allData.filter((data) =>  data.seller !==undefined );
         break;
       case "3":
         finalData = allData.filter((data) => data.retailCost !== undefined && data.retailCost !== null)
@@ -930,7 +889,18 @@ const getSearchListData = asyncHandler(async (req, res) => {
         break;
     }
 
-    res.status(200).json(finalData);
+    const uniqueProducts = [];
+    const seenProductIds = new Set();
+
+    finalData.forEach((item) => {
+      const _id = item._id !== undefined ? item?._id.toString() : item?._id.toString();
+      if (!seenProductIds.has(_id)) {
+        uniqueProducts.push(item);
+        seenProductIds.add(_id);
+      }
+    });
+
+    res.status(200).json(uniqueProducts);
   } catch (error) {
     console.error("Error fetching home page data:", error);
     res.status(500).json({ message: "Internal server error" });
@@ -941,7 +911,7 @@ const getSearchListData = asyncHandler(async (req, res) => {
 const getNotifications = async (req, res) => {
   try {
     const { customerId } = req.query;
-    console.log("customerId",customerId)
+    console.log("customerId", customerId)
     if (!customerId) {
       return res.status(400).json({
         status: StatusCodes.BAD_REQUEST,
