@@ -418,7 +418,7 @@ const getAllSellerStoreProduct = asyncHandler(async (req, res) => {
       type,
       category,
       page = 1,  // Default to page 1 if not provided
-      limit = 10, // Default to 10 items per page
+      limit = 12, // Default to 10 items per page
     } = req.query;
 
     const brandArray = Array.isArray(brand) ? brand : brand ? JSON.parse(brand) : [];
@@ -441,7 +441,7 @@ const getAllSellerStoreProduct = asyncHandler(async (req, res) => {
           "productDetails.name": { $regex: new RegExp(search.trim(), "i") },
         }),
       };
-
+      console.log(matchStage)
       return await SellerStoreProduct.aggregate([
         { $match: matchStage },
         {
@@ -587,8 +587,8 @@ const getAllSellerStoreProduct = asyncHandler(async (req, res) => {
           },
         },
         { $sort: { createdAt: -1 } },
-        { $skip: (page - 1) * limit }, // Skip documents based on the page
-        { $limit: parseInt(limit, 10) }, // Limit the number of documents to return
+        { $skip: (page - 1) * limit }, 
+        { $limit: parseInt(limit, 10) }, 
       ]);
     };
 
@@ -597,7 +597,9 @@ const getAllSellerStoreProduct = asyncHandler(async (req, res) => {
       type ? fetchProducts(type) : fetchProducts(),
     ]);
 
-    res.status(200).json({ products: allProducts });
+    // res.status(200).json({ products: allProducts });
+    res.status(200).json(allProducts);
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
