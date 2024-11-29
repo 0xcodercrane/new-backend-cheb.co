@@ -621,7 +621,7 @@ const getHomePageSearchData = asyncHandler(async (req, res) => {
           $match: {
             ...(search && {
               $or: [
-                  
+
                 // { "productDetails.name": { $regex: `^${searchQuery}$`, $options: "i" } },
                 { "productDetails.name": { $regex: `^${searchQuery}`, $options: "i" } },
                 { "productDetails.category": { $regex: searchQuery, $options: "i" } },
@@ -686,7 +686,7 @@ const getSearchListData = asyncHandler(async (req, res) => {
     const { search, tabName } = req.query;
     const searchQuery = search ? search.trim() : "";
 
-    console.log("searchQuery",searchQuery)
+    console.log("searchQuery", searchQuery)
 
     // Fetch latest non-archived stores
     const stores = await SellerStore.find({ isArchive: false })
@@ -883,11 +883,15 @@ const getSearchListData = asyncHandler(async (req, res) => {
         finalData = allData.filter((data) => data.product_name !== undefined);
         break;
       case "2":
-        finalData = allData.filter((data) =>  data.seller !==undefined );
+        finalData = allData.filter((data) => data.seller !== undefined);
         break;
       case "3":
         finalData = allData.filter((data) => data.retailCost !== undefined && data.retailCost !== null)
           .sort((a, b) => a.retailCost - b.retailCost);
+        break;
+      case "4":
+        finalData = allData.filter((data) => data.retailCost !== undefined && data.retailCost !== null)
+          .sort((a, b) =>  b.retailCost - a.retailCost);
         break;
       default:
         finalData = allData;
