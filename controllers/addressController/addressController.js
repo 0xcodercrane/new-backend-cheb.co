@@ -211,7 +211,7 @@ export const getCarrierCharge = asyncHandler(async (req, res) => {
             data: data
         };
         let response = await axios.request(config);
-
+        console.log(response.data.rates,"carrier charge")
         const lowestRate = filterRatesByDeliveryDays(response.data.rates, deliveryDays);
 
         return res.status(StatusCodes.OK).json({

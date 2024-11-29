@@ -612,6 +612,7 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
             width: totalWidth,
             height: totalHeight,
             weight: totalWeight,
+            "predefined_package": null
           },
         },
       });
@@ -625,13 +626,13 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
           Authorization: `Bearer ${process.env.EASY_POST_API_KEY}`,
         },
       };
-
+      console.log(shipmentData,"shipmentData");
       const shipmentResponse = await axios.request({
         ...axiosConfig,
         url: `${process.env.EASY_POST_BASE_URL}/${process.env.EASY_POST_API_VERSION}/shipments`,
         data: shipmentData,
       });
-
+      console.log(shipmentResponse,"shipmentResponse")
       if (shipmentResponse.data) {
         await Order.findByIdAndUpdate(order._id, {
           shipmentId: shipmentResponse.data.id,
@@ -643,13 +644,14 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
       }
 
       //getting tracking_code by shipmentId
-
+      console.log(shipmentResponse.data.rates,"shipment rate")
       const rateId = JSON.stringify({
         "rate": {
           "id": shipmentResponse.data.rates[0].id
         }
       })
 
+      //console.log(`${process.env.EASY_POST_BASE_URL}/${process.env.EASY_POST_API_VERSION}/shipments/${shipmentResponse.data.id}/buy`,"buy url")
       const trackingCodeResponse = await axios.request({
         ...axiosConfig,
         url: `${process.env.EASY_POST_BASE_URL}/${process.env.EASY_POST_API_VERSION}/shipments/${shipmentResponse.data.id}/buy`,
@@ -775,7 +777,7 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
       `${process.env.CONSUMER_APP_LINK}/main/checkout/orderSuccesful`
     );
   } catch (error) {
-    console.error(error);
+    console.error(error,"easypost error");
     res.status(500).json({ message: error });
   }
 });
