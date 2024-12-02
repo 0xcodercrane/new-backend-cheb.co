@@ -561,6 +561,7 @@ const getAllSellerStoreProduct = asyncHandler(async (req, res) => {
             productConditions: { $push: "$sizeDetails.productCondition" },
             colorInfo: { $push: "$colorInfo" }, // Ensure colorInfo is an array
             name: { $first: "$productDetails.name" },
+            retailCost: { $first: "$productDetails.retailCost" },
             cardImage: { $first: "$productDetails.cardImage" },
           },
         },

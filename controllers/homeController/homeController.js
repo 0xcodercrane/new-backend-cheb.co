@@ -432,10 +432,10 @@ const getHomePageData = asyncHandler(async (req, res) => {
             productConditions: { $push: "$sizeDetails.productCondition" },
             colorInfo: { $first: "$productDetails.colorInfo" },
             name: { $first: '$productDetails.name' },
+            retailCost: { $first: '$productDetails.retailCost' },
             cardImage: { $first: '$productDetails.cardImage' },
             slug: { $first: '$productDetails.slug' },
-            sellerStore: { $first: '$productDetails.sellerStore' }
-
+            sellerStore: { $first: '$productDetails.sellerStore' },
 
           },
         },

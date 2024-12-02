@@ -16,6 +16,7 @@ import { platformConfirmDelivery } from '../../hooks/chebpayments/ChebPaymentHoo
 import { notificationHelper } from '#controllers/utils/Notification.js';
 import { NotificationCreate } from '#utils/ApiService.js';
 import moment from 'moment';
+import { isAddress } from 'ethers';
 
 // import abi from '../../utils/abi.json' assert { type: 'json' };
 
@@ -128,7 +129,7 @@ function filterRatesByDeliveryDays(rates, deliveryDaysRange) {
     } else if (deliveryDaysRange === "3-7") {
         filteredRates = rates.filter(rate => rate.delivery_days >= 3 && rate.delivery_days <= 7);
     } else if (deliveryDaysRange === "7+") {
-        let filterData = rates.filter(rate => rate.delivery_days >= 7)
+       let  filterData = rates.filter(rate => rate.delivery_days >= 7)
         if (filterData.length > 0) {
             filteredRates = rates.filter(rate => rate.delivery_days >= 7);
         }
@@ -194,7 +195,9 @@ export const getCarrierCharge = asyncHandler(async (req, res) => {
                     length: totalLength,
                     width: totalWidth,
                     height: totalHeight,
-                    weight: totalWeight
+                    weight: totalWeight,
+                  "predefined_package": null,
+
                 },
             }
         });
@@ -203,7 +206,7 @@ export const getCarrierCharge = asyncHandler(async (req, res) => {
         let config = {
             method: 'post',
             maxBodyLength: Infinity,
-            url: `${process.env.EASY_POST_BASE_URL}/beta/rates`,
+            url: `${process.env.EASY_POST_BASE_URL}/${process.env.EASY_POST_API_VERSION}/shipments`,
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${process.env.EASY_POST_API_KEY}`
@@ -228,6 +231,62 @@ export const getCarrierCharge = asyncHandler(async (req, res) => {
 
 
 })
+
+
+export const checkAddressValid = asyncHandler(async (req, res) => {
+    try {
+        let findCustomerInfo = await Customer.findOne({ _id: req.customer });
+        if (!findCustomerInfo) {
+            return res.status(400).json({
+                message: ResponseMessage.USER_NOT_EXIST,
+                data: {},
+            });
+        }
+        const { city, state, street, zipCode } = req.body;
+
+        const isEnableVerificationProcess = true
+        let Addressdata = JSON.stringify({
+            "address": {
+                "street1": street,
+                //   "street2": "5",
+                "city": city,
+                "state": state,
+                "zip": zipCode,
+                "country": "US",
+                "company": "EasyPost",
+                "phone": findCustomerInfo?.mobile
+            },
+            "verify": isEnableVerificationProcess
+        });
+
+        let config = {
+            method: 'post',
+            maxBodyLength: Infinity,
+            url: `${process.env.EASY_POST_BASE_URL}/${process.env.EASY_POST_API_VERSION}/addresses`,
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${process.env.EASY_POST_API_KEY}`
+            },
+            data: Addressdata
+        };
+
+        let { data } = await axios.request(config);
+
+        let isAddressValid = data?.verifications?.delivery?.success
+        return res.status(StatusCodes.OK).json({
+            data: isAddressValid,
+        });
+    } catch (err) {
+        console.log("err", err)
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+            message: ResponseMessage.INTERNAL_SERVER_ERROR,
+            data: err.message,
+        });
+    }
+
+
+})
+
 
 
 // async function platformConfirmDelivery(orderHash) {
@@ -270,7 +329,7 @@ async function updateTrackingStatusInDB(trackingCode, status, trackingDetails, s
     try {
         // Find the tracking record in the database based on tracking code
         // trackingCode
-        const trackingRecord = await orderModel.findOne({ shipmentId: shipment_id });
+        const trackingRecord = await orderModel.findOne({ 'shipmentResponse.shipment_id': shipment_id });
 
         if (!trackingRecord) {
             console.log('Tracking record not found');
@@ -281,11 +340,11 @@ async function updateTrackingStatusInDB(trackingCode, status, trackingDetails, s
         trackingRecord.tracking_details = trackingDetails;
 
         await trackingRecord.save();
-       
+
         // Notification Shipment.
         let title = 'Your Order',
             body = `Your order (${trackingRecord?._id}) is now ${status}.`;
-          notificationHelper(trackingRecord?.customer, "Customer", "fcmtoken", title, body, moment(new Date()).format("YYYY-MM-DD"),
+        notificationHelper(trackingRecord?.customer, "Customer", "fcmtoken", title, body, moment(new Date()).format("YYYY-MM-DD"),
             moment(new Date()).format("HH:mm"));
 
         //Notification Created.

@@ -118,7 +118,8 @@ const orderSchema = Schema(
     },
     transactionHash:{
       type: String,
-    }
+    },
+    shipmentResponse:Object
   },
   {
     timestamps: true,

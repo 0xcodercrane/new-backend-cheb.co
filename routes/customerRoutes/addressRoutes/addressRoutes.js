@@ -1,5 +1,5 @@
 // Imports
-import { deleteAddress, getCarrierCharge, getMyAddresses, getSingleAddress, setAddress, updateAddress, updateDeliveryStatus } from '#controllers/addressController/addressController.js';
+import { checkAddressValid, deleteAddress, getCarrierCharge, getMyAddresses, getSingleAddress, setAddress, updateAddress, updateDeliveryStatus } from '#controllers/addressController/addressController.js';
 import { protectForCustomer } from '#middlewares/authMiddleware.js';
 import { Router } from 'express';
 
@@ -13,6 +13,7 @@ addressRoutes.route('/getSingleAddress/:id').get(protectForCustomer,getSingleAdd
 
 //get address based delivery Charge and expected date
 addressRoutes.route('/get-carrier-charge').post(protectForCustomer,getCarrierCharge);
+addressRoutes.route('/check-address-verification').post(protectForCustomer,checkAddressValid);
 
 //Easy-post tracking.
 addressRoutes.route("/tracking-shipping/easypost-webhook").post(updateDeliveryStatus);
