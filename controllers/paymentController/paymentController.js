@@ -776,7 +776,7 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
       `${process.env.CONSUMER_APP_LINK}/main/checkout/orderSuccesful`
     );
   } catch (error) {
-    console.error(error);
+    console.error(error,"easypost error");
     res.status(500).json({ message: error });
   }
 });
