@@ -100,7 +100,6 @@ const getMyOrdersByStatus = asyncHandler(async (req, res) => {
   res.status(200).json(allOrderItems);
 });
 
-
 // Get My SingleOrders
 const getMySingleOrder = asyncHandler(async (req, res) => {
   const order = await Order.findById(req.params.id).populate("store");

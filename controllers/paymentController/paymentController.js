@@ -17,7 +17,7 @@ import SellerStore from "#models/userModels/sellerModel/sellerStoreModel/sellerS
 import axios from "axios";
 import { StatusCodes } from "http-status-codes";
 import { ResponseMessage } from "#controllers/utils/ResponseMessage.js";
-import crypto from 'crypto';
+import crypto from "crypto";
 
 const paymentIntent = asyncHandler(async (req, res) => {
   globals.unset("orderData");
@@ -42,7 +42,7 @@ const paymentIntent = asyncHandler(async (req, res) => {
     pickupDate,
     pickupTime,
     carrierCharge,
-    deliveryDays
+    deliveryDays,
   } = req.body;
 
   const orderData = {
@@ -152,7 +152,7 @@ const paymentIntent = asyncHandler(async (req, res) => {
 
   try {
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],  
+      payment_method_types: ["card"],
       // crypto
       line_items: lineItems,
       mode: "payment",
@@ -300,7 +300,7 @@ const createPaymentIntent = asyncHandler(async (req, res) => {
       currency: "usd",
       customer: customerId,
       setup_future_usage: "off_session",
-      payment_method_types: ["card","crypto"],
+      payment_method_types: ["card", "crypto"],
       receipt_email: req.customer.email,
       metadata: {
         customerId: customerId,
@@ -478,7 +478,7 @@ const createMobileOrder = asyncHandler(async (req, res) => {
 // Create Order
 const createOrderByStripePayment = asyncHandler(async (req, res) => {
   try {
-    console.log("Step 1: Fetching customer and seller information", req.que);
+    // console.log("Step 1: Fetching customer and seller information", req.que);
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
     const { session_id } = req.query;
@@ -518,7 +518,7 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
       pickupTime,
     } = orderData;
 
-    console.log("calling createOrderByStripePayment", orderData);
+    // console.log("calling createOrderByStripePayment", orderData);
 
     const newOderData = {
       // purchasePrice,
@@ -636,17 +636,17 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
     //     data: shipmentData,
     //   });
 
-      if (orderData.carrierCharge) {
-        await Order.findByIdAndUpdate(order._id, {
-          shipmentResponse:orderData.carrierCharge
-          // shipmentId: orderData.carrierCharge.shipment_id,
-          // carrier: orderData.carrierCharge.carrier
-        });
-        console.log(
-          "EasyPost shipment created with ID:",
-          orderData.carrierCharge
-        );
-      }
+    if (orderData.carrierCharge) {
+      await Order.findByIdAndUpdate(order._id, {
+        shipmentResponse: orderData.carrierCharge,
+        // shipmentId: orderData.carrierCharge.shipment_id,
+        // carrier: orderData.carrierCharge.carrier
+      });
+      console.log(
+        "EasyPost shipment created with ID:",
+        orderData.carrierCharge
+      );
+    }
 
     //   //getting tracking_code by shipmentId
 
@@ -674,8 +674,6 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
     //       trackingCodeResponse.data.tracking_code
     //     );
     //   }
-
-
 
     //   // Tracking data configuration
     //   const trackingData = JSON.stringify({
@@ -708,6 +706,7 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
 
     // }
 
+    console.log("before sending payment info email");
     await sendPaymentInfoEmail(customerInfo?.email, customerInfo, cartItems, {
       // processingFee,
       shippingFee,
@@ -725,6 +724,8 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
     });
 
     const singleSeller = await Seller.findById(cartItems[0].seller);
+
+    console.log("before sending order email to seller");
 
     await orderEmailToSeller(
       singleSeller.email,
@@ -776,15 +777,19 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
       `${process.env.CONSUMER_APP_LINK}/main/checkout/orderSuccesful`
     );
   } catch (error) {
-    console.error(error,"easypost error");
+    console.error(error, "easypost error");
     res.status(500).json({ message: error });
   }
 });
 
-
-
-
-async function createShipment(orderData, findCustomerInfo, customerAddress, storeInfo, order, axiosConfig) {
+async function createShipment(
+  orderData,
+  findCustomerInfo,
+  customerAddress,
+  storeInfo,
+  order,
+  axiosConfig
+) {
   // Initialize total parcel dimensions and weight
   let totalHeight = 0;
   let totalWeight = 0;
@@ -842,16 +847,24 @@ async function createShipment(orderData, findCustomerInfo, customerAddress, stor
       await Order.findByIdAndUpdate(order._id, {
         shipmentId: shipmentResponse.data.id,
       });
-      console.log("EasyPost shipment created with ID:", shipmentResponse.data.id);
+      console.log(
+        "EasyPost shipment created with ID:",
+        shipmentResponse.data.id
+      );
     }
-    return shipmentResponse.data
+    return shipmentResponse.data;
   } catch (error) {
     console.error("Error creating EasyPost shipment:", error);
   }
 }
 
-
-async function createShipmentTracking(rateIds, orderId, axiosConfig, shippingId, carrier) {
+async function createShipmentTracking(
+  rateIds,
+  orderId,
+  axiosConfig,
+  shippingId,
+  carrier
+) {
   try {
     const rateId = JSON.stringify({
       rate: {
@@ -881,7 +894,6 @@ async function createShipmentTracking(rateIds, orderId, axiosConfig, shippingId,
         },
       });
 
-
       // Tracking creation request
       const trackingResponse = await axios.request({
         ...axiosConfig,
@@ -895,7 +907,10 @@ async function createShipmentTracking(rateIds, orderId, axiosConfig, shippingId,
           trackingId: trackingResponse.data.id,
           trackingUrl: trackingResponse.data.public_url,
         });
-        console.log("EasyPost tracking created with ID:", trackingResponse.data.id);
+        console.log(
+          "EasyPost tracking created with ID:",
+          trackingResponse.data.id
+        );
       }
     }
   } catch (error) {
@@ -903,12 +918,7 @@ async function createShipmentTracking(rateIds, orderId, axiosConfig, shippingId,
   }
 }
 
-
-
-
-
 const createOrderByCrpyto = asyncHandler(async (req, res) => {
-
   try {
     let {
       address,
@@ -928,7 +938,7 @@ const createOrderByCrpyto = asyncHandler(async (req, res) => {
       selectedOption,
       pickupDate,
       pickupTime,
-      createOrderHash
+      createOrderHash,
     } = req.body;
 
     let newOderData = {
@@ -948,7 +958,7 @@ const createOrderByCrpyto = asyncHandler(async (req, res) => {
       pickupType: selectedOption,
       pickupDate,
       pickupTime,
-      transactionHash: createOrderHash
+      transactionHash: createOrderHash,
     };
     if (address) {
       newOderData.address = address;
@@ -967,7 +977,7 @@ const createOrderByCrpyto = asyncHandler(async (req, res) => {
       store: store,
       seller: seller,
       transactionId: transactionId,
-      transactionHash: createOrderHash
+      transactionHash: createOrderHash,
     });
 
     createdOrderItems.forEach(async (orderItem) => {
@@ -982,14 +992,12 @@ const createOrderByCrpyto = asyncHandler(async (req, res) => {
       customerAddress = await Address.findOne({ _id: address });
     }
 
-    //Easy Post 
+    //Easy Post
     let findCustomerInfo = await Customer.findOne({
       _id: customerAddress?.customer,
     });
 
     const storeInfo = await SellerStore.findOne({ _id: store });
-
-
 
     // Common Axios configuration
     const axiosConfig = {
@@ -1001,11 +1009,22 @@ const createOrderByCrpyto = asyncHandler(async (req, res) => {
       },
     };
 
+    let shippingResponse = await createShipment(
+      req.body,
+      findCustomerInfo,
+      customerAddress,
+      storeInfo,
+      order?._id,
+      axiosConfig
+    );
 
-
-    let shippingResponse = await createShipment(req.body, findCustomerInfo, customerAddress, storeInfo, order?._id, axiosConfig);
-
-    createShipmentTracking(await shippingResponse.rates[0].id, order?._id, axiosConfig, await shippingResponse.id, await shippingResponse.rates[0].carrier)
+    createShipmentTracking(
+      await shippingResponse.rates[0].id,
+      order?._id,
+      axiosConfig,
+      await shippingResponse.id,
+      await shippingResponse.rates[0].carrier
+    );
 
     // sendPaymentInfoEmail(customerInfo?.email, customerInfo, cartItems, {
     //   // processingFee,
@@ -1070,13 +1089,9 @@ const createOrderByCrpyto = asyncHandler(async (req, res) => {
     }
 
     res.status(201).json({ order, orderItemsFromCart, createPaymentRecived });
-
   } catch (error) {
-    console.log("error", error)
-
+    console.log("error", error);
   }
-
-
 });
 
 const getCustomerStripeId = asyncHandler(async (req, res) => {
@@ -1214,19 +1229,17 @@ export const createOrderHash = asyncHandler(async (req, res) => {
     const data = productId + timestamp;
 
     // Create SHA-256 hash
-    const hash = crypto.createHash('sha256').update(data).digest('hex');
+    const hash = crypto.createHash("sha256").update(data).digest("hex");
     return res.status(StatusCodes.OK).json({
       data: hash,
     });
-
   } catch (err) {
-    console.log("err", err)
+    console.log("err", err);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       message: ResponseMessage.INTERNAL_SERVER_ERROR,
       data: err.message,
     });
   }
-
 });
 
 export {

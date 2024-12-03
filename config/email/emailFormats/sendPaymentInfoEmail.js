@@ -21,25 +21,32 @@ export async function sendPaymentInfoEmail(
     total,
   }
 ) {
-  const date = new Date();
-  const today =
-    date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+  try {
+    const date = new Date();
+    const today =
+      date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
 
-  const totalPrice = cartItems?.reduce((sum, item) => {
-    return sum + item.price * item.quantity;
-  }, 0);
+    const totalPrice = cartItems?.reduce((sum, item) => {
+      return sum + item.price * item.quantity;
+    }, 0);
 
-  let additionalCharges = 0;
+    let additionalCharges = 0;
 
-  if (customerAddress) {
-    additionalCharges = Math.round(shippingFee + tax);
-  } else {
-    additionalCharges = Math.round(tax);
-  }
+    if (customerAddress) {
+      additionalCharges = Math.round(shippingFee + Math.round(tax));
+    } else {
+      additionalCharges = Math.round(tax);
+    }
+    console.log(
+      additionalCharges,
+      totalPrice,
+      shippingFee,
+      tax,
+      "additionalCharges"
+    );
+    orderDate = new Date(orderDate).toLocaleString();
 
-  orderDate = new Date(orderDate).toLocaleString();
-
-  const message = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+    const message = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
   <html dir="ltr" lang="en">
   
     <head>
@@ -299,26 +306,18 @@ export async function sendPaymentInfoEmail(
                               </td>
                             </tr>
 
-                            
-                     ${
-                       customerAddress
-                         ? `<tr style="width:100%">
-                            <td align="left" data-id="__react-email-column" style="display:table-cell">
-                              <p style="font-size:13px;line-height:24px;margin:0;color:rgb(102,102,102);font-weight:600;padding:0px 30px 0px 0px;">Shipping Fee:</p>
-                            </td>
-                            <td align="right" data-id="__react-email-column" style="display:table-cell;width:90px">
-                              <p style="font-size:16px;line-height:24px;margin:0px 20px 0px 0px;font-weight:600;white-space:nowrap;text-align:right">$${shippingFee}</p>
-                            </td>
-                          </tr>`
-                         : ""
-                     }
+                           
                             
                          
                       
 
                              <tr style="width:100%">
                             <td align="left" data-id="__react-email-column" style="display:table-cell">
-                              <p style="font-size:13px;line-height:24px;margin:0;color:rgb(102,102,102);font-weight:600;padding:0px 30px 0px 0px;">CheB fee:</p>
+                              <p style="font-size:13px;line-height:24px;margin:0;color:rgb(102,102,102);font-weight:600;padding:0px 30px 0px 0px;">${
+                                customerAddress
+                                  ? `Platform fees(Include shipping):`
+                                  : `Platform fees`
+                              }</p>
                             </td>
                             <td align="right" data-id="__react-email-column" style="display:table-cell;width:90px">
                               <p style="font-size:16px;line-height:24px;margin:0px 20px 0px 0px;font-weight:600;white-space:nowrap;text-align:right">$${tax.toFixed(
@@ -333,9 +332,9 @@ export async function sendPaymentInfoEmail(
                                 <p style="font-size:13px;line-height:24px;margin:0;color:rgb(102,102,102);font-weight:600;padding:0px 30px 0px 0px;">Total:</p>
                               </td>
                               <td align="right" data-id="__react-email-column" style="display:table-cell;width:90px">
-                                <p style="font-size:16px;line-height:24px;margin:0px 20px 0px 0px;font-weight:600;white-space:nowrap;text-align:right">$${
-                                  additionalCharges + totalPrice
-                                }</p>
+                                <p style="font-size:16px;line-height:24px;margin:0px 20px 0px 0px;font-weight:600;white-space:nowrap;text-align:right">$${Math.round(
+                                  tax + totalPrice
+                                ).toFixed(2)}</p>
                               </td>
                             </tr>
                           
@@ -384,5 +383,8 @@ export async function sendPaymentInfoEmail(
   
   </html>`;
 
-  await sendEmailWithResend(recepient, "Order Conformation", message);
+    await sendEmailWithResend(recepient, "Order Conformation", message);
+  } catch (error) {
+    console.log(error, "send payment mail error");
+  }
 }
