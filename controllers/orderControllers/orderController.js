@@ -216,8 +216,8 @@ const customerCreatesOrder = asyncHandler(async (req, res) => {
 });
 
 const getSellerAllOrder = asyncHandler(async (req, res) => {
-  const { store, orderStatus } = req.query;
-
+  const { store, orderStatus, page } = req.query;
+  const limit = 20;
   let obj = {
     processing: ["processing"],
     shipped: ["shipped", "pre_transit", "in_transit"],
@@ -230,7 +230,9 @@ const getSellerAllOrder = asyncHandler(async (req, res) => {
     .populate("customer")
     .populate("store")
     .populate("address")
-    .sort({ createdAt: -1 });
+    .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(parseInt(limit, 10));
 
   res.status(200).json(orders);
 });
