@@ -567,74 +567,11 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
 
     const customerInfo = await Customer.findOne({ _id: customer });
 
-    // console.log("customerInfo" , customerInfo)
-
     const customerAddress = await Address.findOne({ _id: orderData?.address });
     // let findCustomerInfo = await Customer.findOne({
     //   _id: customerAddress?.customer,
     // });
     const storeInfo = await SellerStore.findOne({ _id: store });
-
-    // //Shipping Create By EasyPost
-    // let totalHeight = 0;
-    // let totalWeight = 0;
-    // let totalLength = 0;
-    // let totalWidth = 0;
-
-    // orderData.cartItems.forEach((cartItem) => {
-    //   totalHeight += cartItem.sizeData.height || 0;
-    //   totalWeight += cartItem.sizeData.weight || 0;
-    //   totalLength += cartItem.sizeData.length || 0;
-    //   totalWidth += cartItem.sizeData.width || 0;
-    // });
-
-    // if (orderData.address) {
-
-    //   // Shipment data configuration
-    //   const shipmentData = JSON.stringify({
-    //     shipment: {
-    //       to_address: {
-    //         name: findCustomerInfo?.name,
-    //         street1: customerAddress.street,
-    //         city: customerAddress.city,
-    //         state: customerAddress.state,
-    //         zip: customerAddress.zipCode,
-    //         email: findCustomerInfo?.email,
-    //       },
-    //       from_address: {
-    //         name: "EasyPost",
-    //         street1: storeInfo?.street,
-    //         street2: storeInfo?.street2,
-    //         city: storeInfo?.city,
-    //         state: storeInfo?.state,
-    //         zip: storeInfo?.zipCode,
-    //         phone: storeInfo?.mobile,
-    //         email: storeInfo?.email,
-    //       },
-    //       parcel: {
-    //         length: totalLength,
-    //         width: totalWidth,
-    //         height: totalHeight,
-    //         weight: totalWeight,
-    //       },
-    //     },
-    //   });
-
-    //   // Common Axios configuration
-    //   const axiosConfig = {
-    //     method: "post",
-    //     maxBodyLength: Infinity,
-    //     headers: {
-    //       "Content-Type": "application/json",
-    //       Authorization: `Bearer ${process.env.EASY_POST_API_KEY}`,
-    //     },
-    //   };
-
-    //   const shipmentResponse = await axios.request({
-    //     ...axiosConfig,
-    //     url: `${process.env.EASY_POST_BASE_URL}/${process.env.EASY_POST_API_VERSION}/shipments`,
-    //     data: shipmentData,
-    //   });
 
     if (orderData.carrierCharge) {
       await Order.findByIdAndUpdate(order._id, {
@@ -647,64 +584,6 @@ const createOrderByStripePayment = asyncHandler(async (req, res) => {
         orderData.carrierCharge
       );
     }
-
-    //   //getting tracking_code by shipmentId
-
-    //   const rateId = JSON.stringify({
-    //     "rate": {
-    //       "id": shipmentResponse.data.rates[0].id
-    //     }
-    //   })
-
-    //   const trackingCodeResponse = await axios.request({
-    //     ...axiosConfig,
-    //     url: `${process.env.EASY_POST_BASE_URL}/${process.env.EASY_POST_API_VERSION}/shipments/${shipmentResponse.data.id}/buy`,
-    //     data: rateId,
-    //   });
-
-    //   // console.log("trackingCodeResponse", trackingCodeResponse)
-
-    //   if (trackingCodeResponse.data) {
-    //     await Order.findByIdAndUpdate(order._id, {
-    //       // trackingCodeResponse.data.tracking_code
-    //       trackingCode: "EZ1000000001",
-    //     });
-    //     console.log(
-    //       "EasyPost tracking code get:",
-    //       trackingCodeResponse.data.tracking_code
-    //     );
-    //   }
-
-    //   // Tracking data configuration
-    //   const trackingData = JSON.stringify({
-    //     tracker: {
-    //       // trackingCodeResponse.data.tracking_code
-    //       tracking_code: "EZ1000000001",
-    //       carrier: shipmentResponse.data.rates[0].carrier,
-    //     },
-    //   });
-
-    //   // Tracking creation request
-    //   const trackingResponse = await axios.request({
-    //     ...axiosConfig,
-    //     url: `${process.env.EASY_POST_BASE_URL}/${process.env.EASY_POST_API_VERSION}/trackers`,
-    //     data: trackingData,
-    //   });
-
-    //   if (trackingResponse.data) {
-    //     await Order.findByIdAndUpdate(order._id, {
-    //       trackingId: trackingResponse.data.id,
-    //       trackingUrl: trackingResponse.data.public_url,
-    //       // trackingResponse.data.tracking_code,
-    //       trackingCode: "EZ1000000001"
-    //     });
-    //     console.log(
-    //       "EasyPost tracking created with ID:",
-    //       trackingResponse.data.id
-    //     );
-    //   }
-
-    // }
 
     console.log("before sending payment info email");
     await sendPaymentInfoEmail(customerInfo?.email, customerInfo, cartItems, {
@@ -1018,13 +897,13 @@ const createOrderByCrpyto = asyncHandler(async (req, res) => {
       axiosConfig
     );
 
-    createShipmentTracking(
-      await shippingResponse.rates[0].id,
-      order?._id,
-      axiosConfig,
-      await shippingResponse.id,
-      await shippingResponse.rates[0].carrier
-    );
+    // createShipmentTracking(
+    //   await shippingResponse.rates[0].id,
+    //   order?._id,
+    //   axiosConfig,
+    //   await shippingResponse.id,
+    //   await shippingResponse.rates[0].carrier
+    // );
 
     // sendPaymentInfoEmail(customerInfo?.email, customerInfo, cartItems, {
     //   // processingFee,

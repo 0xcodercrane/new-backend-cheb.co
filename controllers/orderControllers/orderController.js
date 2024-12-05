@@ -217,7 +217,15 @@ const customerCreatesOrder = asyncHandler(async (req, res) => {
 
 const getSellerAllOrder = asyncHandler(async (req, res) => {
   const { store, orderStatus } = req.query;
-  const query = { store, orderStatus };
+
+  let obj = {
+    processing: ["processing"],
+    shipped: ["shipped", "pre_transit", "in_transit"],
+    toBeDelivered: ["out_for_delivery", "toBeDelivered"],
+    completed: ["completed", "delivered"],
+  };
+
+  const query = { store, orderStatus: { $in: obj[orderStatus] } };
   const orders = await Order.find(query)
     .populate("customer")
     .populate("store")
