@@ -16,7 +16,13 @@ const getAllOrders = asyncHandler(async (req, res) => {
 const getOrderItemsFromOrder = asyncHandler(async (req, res) => {
   const orderItems = await OrderItem.find({ order: req.params.id })
     .populate("item")
-    .populate("size");
+    .populate({
+      path: "size",
+      populate: {
+        path: "size",
+        select: "name",
+      },
+    });
 
   res.status(200).json(orderItems);
 });

@@ -72,7 +72,6 @@ const createSellerStoreProduct = asyncHandler(async (req, res) => {
 
 //     const storeIds = stores.map(store => store._id);
 
-
 //     // Helper function to fetch products based on type
 //     // const fetchProducts = async (type) => {
 //     //   const matchStage = {
@@ -83,7 +82,7 @@ const createSellerStoreProduct = asyncHandler(async (req, res) => {
 //     //       "productDetails.name": { $regex: new RegExp(search.trim(), 'i') }
 //     //     }),
 //     //   };
-    
+
 //     //   return await SellerStoreProduct.aggregate([
 //     //     { $match: matchStage },
 //     //     {
@@ -237,7 +236,7 @@ const createSellerStoreProduct = asyncHandler(async (req, res) => {
 //           "productDetails.name": { $regex: new RegExp(search.trim(), 'i') }
 //         }),
 //       };
-    
+
 //       return await SellerStoreProduct.aggregate([
 //         { $match: matchStage },
 //         {
@@ -382,13 +381,11 @@ const createSellerStoreProduct = asyncHandler(async (req, res) => {
 //         { $sort: { createdAt: -1 } },
 //       ]);
 //     };
-    
-    
 
 //     // Fetch sneakers and apparel products
 //     const [allProducts] = await Promise.all([
 //       type ? fetchProducts(type) : fetchProducts()
-//     ]);  
+//     ]);
 
 //     res.status(200).json(allProducts);
 //   }
@@ -398,8 +395,6 @@ const createSellerStoreProduct = asyncHandler(async (req, res) => {
 //   }
 
 // });
-
-
 
 //
 
@@ -417,18 +412,36 @@ const getAllSellerStoreProduct = asyncHandler(async (req, res) => {
       search,
       type,
       category,
-      page = 1,  // Default to page 1 if not provided
+      page = 1, // Default to page 1 if not provided
       limit = 12, // Default to 10 items per page
     } = req.query;
 
-    const brandArray = Array.isArray(brand) ? brand : brand ? JSON.parse(brand) : [];
-    const conditionArray = Array.isArray(condition) ? condition : condition ? JSON.parse(condition) : [];
+    const brandArray = Array.isArray(brand)
+      ? brand
+      : brand
+      ? JSON.parse(brand)
+      : [];
+    const conditionArray = Array.isArray(condition)
+      ? condition
+      : condition
+      ? JSON.parse(condition)
+      : [];
     const sizeArray = Array.isArray(size) ? size : size ? JSON.parse(size) : [];
-    const apparelSizeArray = Array.isArray(apparelSizes) ? apparelSizes : apparelSizes ? JSON.parse(apparelSizes) : [];
-    const colorsArray = Array.isArray(color) ? color : color ? JSON.parse(color) : [];
+    const apparelSizeArray = Array.isArray(apparelSizes)
+      ? apparelSizes
+      : apparelSizes
+      ? JSON.parse(apparelSizes)
+      : [];
+    const colorsArray = Array.isArray(color)
+      ? color
+      : color
+      ? JSON.parse(color)
+      : [];
 
     // Fetch latest non-archived stores
-    const stores = await SellerStore.find({ isArchive: false }).sort({ createdAt: -1 });
+    const stores = await SellerStore.find({ isArchive: false }).sort({
+      createdAt: -1,
+    });
     const storeIds = stores.map((store) => store._id);
 
     // Helper function to fetch products based on type with pagination
@@ -441,7 +454,7 @@ const getAllSellerStoreProduct = asyncHandler(async (req, res) => {
           "productDetails.name": { $regex: new RegExp(search.trim(), "i") },
         }),
       };
-      console.log(matchStage)
+      console.log(matchStage);
       return await SellerStoreProduct.aggregate([
         { $match: matchStage },
         {
@@ -509,8 +522,12 @@ const getAllSellerStoreProduct = asyncHandler(async (req, res) => {
         { $unwind: "$sizeInfo" },
         {
           $match: {
-            ...(gender && { "sizeDetails.gender": { $regex: new RegExp(gender, "i") } }),
-            ...(category && { "productDetails.category": { $regex: new RegExp(category, "i") } }),
+            ...(gender && {
+              "sizeDetails.gender": { $regex: new RegExp(gender, "i") },
+            }),
+            ...(category && {
+              "productDetails.category": { $regex: new RegExp(category, "i") },
+            }),
             ...(minPrice || maxPrice
               ? {
                   "productDetails.retailCost": {
@@ -526,7 +543,9 @@ const getAllSellerStoreProduct = asyncHandler(async (req, res) => {
             }),
             ...(conditionArray.length > 0 && {
               $and: conditionArray.map((con) => ({
-                "sizeDetails.productCondition": { $regex: new RegExp(con, "i") },
+                "sizeDetails.productCondition": {
+                  $regex: new RegExp(con, "i"),
+                },
               })),
             }),
             ...(sizeArray.length > 0 || apparelSizeArray.length > 0
@@ -588,8 +607,8 @@ const getAllSellerStoreProduct = asyncHandler(async (req, res) => {
           },
         },
         { $sort: { createdAt: -1 } },
-        { $skip: (page - 1) * limit }, 
-        { $limit: parseInt(limit, 10) }, 
+        // { $skip: (page - 1) * limit },
+        // { $limit: parseInt(limit, 10) },
       ]);
     };
 
@@ -600,16 +619,11 @@ const getAllSellerStoreProduct = asyncHandler(async (req, res) => {
 
     // res.status(200).json({ products: allProducts });
     res.status(200).json(allProducts);
-
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
   }
 });
-
-
-
-
 
 const getSellerStoreProducts = asyncHandler(async (req, res) => {
   const { filter, search } = req.query;
