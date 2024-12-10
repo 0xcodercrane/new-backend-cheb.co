@@ -607,8 +607,8 @@ const getAllSellerStoreProduct = asyncHandler(async (req, res) => {
           },
         },
         { $sort: { createdAt: -1 } },
-        // { $skip: (page - 1) * limit },
-        // { $limit: parseInt(limit, 10) },
+        { $skip: (page - 1) * limit },
+        { $limit: parseInt(limit, 10) },
       ]);
     };
 
