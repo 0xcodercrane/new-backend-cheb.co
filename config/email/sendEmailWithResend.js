@@ -5,8 +5,8 @@ export async function sendEmailWithResend(recipients, subject, emailBody) {
     const resend = new Resend(process.env.RESEND_API_KEY);
     console.log(resend);
     const { data, error } = await resend.emails.send({
-      // from: process.env.RESEND_SENDER,
-      from: "onboarding@resend.dev",
+      from: process.env.RESEND_SENDER,
+      // from: "onboarding@resend.dev",
       // from: "onboarding@resend.dev",
       to: recipients,
       subject,
