@@ -21,6 +21,8 @@ addressRoutes
   .patch(protectForCustomer, updateAddress)
   .delete(protectForCustomer, deleteAddress);
 addressRoutes.route("/getMyAddresses").get(protectForCustomer, getMyAddresses);
+// addressRoutes.route("/getMyAddresses").get(getMyAddresses);
+
 addressRoutes
   .route("/getSingleAddress/:id")
   .get(protectForCustomer, getSingleAddress);
