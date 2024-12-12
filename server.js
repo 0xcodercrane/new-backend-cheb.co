@@ -30,9 +30,6 @@ const allowedOrigins = [
   "https://store-test.cheb.co",
   "https://seller-test.cheb.co",
   "https://admin-test.cheb.co",
-  // "http://localhost:3000",
-  // "http://localhost:3001",
-  // "http://localhost:3003",
 ];
 
 app.use(

@@ -71,12 +71,35 @@ const getMyOrdersByStatus = asyncHandler(async (req, res) => {
   console.log("API HIT", orderStatus);
   console.log(req.customer._id, orderStatus);
 
-  const myOrders = await Order.find({
+  let obj = {
+    processing: ["processing", "shipped", "pre_transit", "in_transit"],
+    // shipped: ["shipped", "pre_transit", "in_transit"],
+    toBeDelivered: ["out_for_delivery", "toBeDelivered"],
+    completed: ["completed", "delivered"],
+  };
+
+  const query = {
     customer: req.customer._id,
-    orderStatus: orderStatus,
-  })
+    orderStatus: { $in: obj[orderStatus] },
+  };
+  // const orders = await Order.find(query)
+  //   .populate("customer")
+  //   .populate("store")
+  //   .populate("address")
+  //   .sort({ createdAt: -1 })
+  //   .skip((page - 1) * limit)
+  //   .limit(parseInt(limit, 10));
+
+  const myOrders = await Order.find(query)
     .populate("store")
     .sort({ createdAt: -1 });
+
+  // const myOrders = await Order.find({
+  //   customer: req.customer._id,
+  //   orderStatus: orderStatus,
+  // })
+  //   .populate("store")
+  //   .sort({ createdAt: -1 });
 
   let allOrderItems = [];
 
@@ -236,9 +259,9 @@ const getSellerAllOrder = asyncHandler(async (req, res) => {
     .populate("customer")
     .populate("store")
     .populate("address")
-    .sort({ createdAt: -1 })
-    .skip((page - 1) * limit)
-    .limit(parseInt(limit, 10));
+    .sort({ createdAt: -1 });
+  // .skip((page - 1) * limit)
+  // .limit(parseInt(limit, 10));
 
   res.status(200).json(orders);
 });
