@@ -20,30 +20,30 @@ const port = process.env.PORT || 3055;
 connectDB();
 const app = express();
 
-// app.use(
-//   cors({
-//     origin: "*",
-//   })
-// );
-
-const allowedOrigins = [
-  "https://store-test.cheb.co",
-  "https://seller-test.cheb.co",
-  "https://admin-test.cheb.co",
-];
-
 app.use(
   cors({
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        // Allow requests with no origin (e.g., mobile apps or Postman)
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
+    origin: "*",
   })
 );
+
+// const allowedOrigins = [
+//   "https://store-test.cheb.co",
+//   "https://seller-test.cheb.co",
+//   "https://admin-test.cheb.co",
+// ];
+
+// app.use(
+//   cors({
+//     origin: (origin, callback) => {
+//       if (!origin || allowedOrigins.includes(origin)) {
+//         // Allow requests with no origin (e.g., mobile apps or Postman)
+//         callback(null, true);
+//       } else {
+//         callback(new Error("Not allowed by CORS"));
+//       }
+//     },
+//   })
+// );
 
 //middleware
 

@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+const ObjectId = mongoose.Types.ObjectId;
 import asyncHandler from "express-async-handler";
 import SellerStoreProduct from "#models/productModel/sellerStoreProductModel.js";
 import SellerRecommendation from "#models/productModel/upSellingProductModal.js";
@@ -412,6 +414,7 @@ const getAllSellerStoreProduct = asyncHandler(async (req, res) => {
       search,
       type,
       category,
+      customerId,
       page = 1, // Default to page 1 if not provided
       limit = 12, // Default to 10 items per page
     } = req.query;
@@ -445,7 +448,7 @@ const getAllSellerStoreProduct = asyncHandler(async (req, res) => {
     const storeIds = stores.map((store) => store._id);
 
     // Helper function to fetch products based on type with pagination
-    const fetchProducts = async (type) => {
+    const fetchProducts = async (type, customerId) => {
       const matchStage = {
         isActive: true,
         sellerStore: { $in: storeIds },
@@ -520,6 +523,31 @@ const getAllSellerStoreProduct = asyncHandler(async (req, res) => {
           },
         },
         { $unwind: "$sizeInfo" },
+        // Join with favourites collection
+        {
+          $lookup: {
+            from: "favourites", // Name of your favourites collection
+            let: { productId: "$productDetails._id" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ["$product", "$$productId"] },
+                      { $eq: ["$customerId", ObjectId(customerId)] },
+                    ],
+                  },
+                },
+              },
+            ],
+            as: "favouriteInfo",
+          },
+        },
+        {
+          $addFields: {
+            isFavourite: { $gt: [{ $size: "$favouriteInfo" }, 0] }, // True if favouriteInfo array is not empty
+          },
+        },
         {
           $match: {
             ...(gender && {
@@ -582,6 +610,7 @@ const getAllSellerStoreProduct = asyncHandler(async (req, res) => {
             name: { $first: "$productDetails.name" },
             retailCost: { $first: "$productDetails.retailCost" },
             cardImage: { $first: "$productDetails.cardImage" },
+            isFavourite: { $first: "$isFavourite" },
           },
         },
         {
@@ -603,6 +632,7 @@ const getAllSellerStoreProduct = asyncHandler(async (req, res) => {
               colorInfo: "$colorInfo",
               name: "$name",
               cardImage: "$cardImage",
+              isFavourite: "$isFavourite",
             },
           },
         },
@@ -614,7 +644,7 @@ const getAllSellerStoreProduct = asyncHandler(async (req, res) => {
 
     // Fetch sneakers and apparel products with pagination
     const [allProducts] = await Promise.all([
-      type ? fetchProducts(type) : fetchProducts(),
+      type ? fetchProducts(type, customerId) : fetchProducts(null, customerId),
     ]);
 
     // res.status(200).json({ products: allProducts });

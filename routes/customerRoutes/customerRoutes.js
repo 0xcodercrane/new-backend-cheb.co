@@ -8,6 +8,7 @@ import {
   getSingleProductBySlug,
   getSingleStoreProduct,
   getTrendingSneaker,
+  makeFavourite,
 } from "#controllers/productController/productController.js";
 import {
   singleProfile,
@@ -108,18 +109,12 @@ customerRoutes.route("/getSingleProductImages/:id").get(getSingleProductImages);
 customerRoutes.route("/getSingleStoreProducts/:id").get(getSingleStoreProduct);
 customerRoutes.route("/getSingleStore/:id").get(getSellerSingleStore);
 customerRoutes.route("/getSingleStoreBySlug/:slug").get(getSingleStoreBySlug);
-
+customerRoutes.route("/make-favourite").post(protectForCustomer, makeFavourite);
 customerRoutes.use("/review", reviewRoutes);
 customerRoutes.use("/profile/address", addressRoutes);
 customerRoutes.use("/order", protectForCustomer, orderRoutes);
 customerRoutes.use("/payment-intent", paymentRoutes);
 customerRoutes.use("/home", homeRoutes);
-
-
-
-
-
-
 
 customerRoutes.use("/getSellerRecommendation/:id", getSellerRecommendation);
 customerRoutes.use("/getBoughtTogether/:id", getBoughtTogether);
@@ -129,8 +124,6 @@ customerRoutes.use(
   pendingCryptoOrderRoutes
 );
 customerRoutes.use("/pendingCrypto", pendingCryptoOrderRoutes);
-
-
 
 // Export
 export default customerRoutes;
