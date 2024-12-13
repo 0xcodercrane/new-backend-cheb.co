@@ -103,27 +103,53 @@ import NotificationModel from "#models/notificationModel/notificationModel.js";
 //   }
 // });
 
-
 const getHomePageData = asyncHandler(async (req, res) => {
   try {
-    const { brand, gender, color, minPrice, maxPrice, condition, size, apparelSizes, category, search } = req.query;
+    const {
+      brand,
+      gender,
+      color,
+      minPrice,
+      maxPrice,
+      condition,
+      size,
+      apparelSizes,
+      category,
+      search,
+      customerId,
+    } = req.query;
 
-    const brandArray = Array.isArray(brand) ? brand : (brand ? JSON.parse(brand) : []);
-    const conditionArray = Array.isArray(condition) ? condition : (condition ? JSON.parse(condition) : []);
-    const sizeArray = Array.isArray(size) ? size : (size ? JSON.parse(size) : []);
-    const apparelSizeArray = Array.isArray(apparelSizes) ? apparelSizes : (apparelSizes ? JSON.parse(apparelSizes) : []);
-    const colorsArray = Array.isArray(color) ? color : (color ? JSON.parse(color) : []);
+    const brandArray = Array.isArray(brand)
+      ? brand
+      : brand
+      ? JSON.parse(brand)
+      : [];
+    const conditionArray = Array.isArray(condition)
+      ? condition
+      : condition
+      ? JSON.parse(condition)
+      : [];
+    const sizeArray = Array.isArray(size) ? size : size ? JSON.parse(size) : [];
+    const apparelSizeArray = Array.isArray(apparelSizes)
+      ? apparelSizes
+      : apparelSizes
+      ? JSON.parse(apparelSizes)
+      : [];
+    const colorsArray = Array.isArray(color)
+      ? color
+      : color
+      ? JSON.parse(color)
+      : [];
     const searchQuery = search ? search.trim() : "";
 
-    console.log("brandArray", brandArray, typeof search, search)
+    console.log("brandArray", brandArray, typeof search, search);
 
     // Fetch latest non-archived stores
     const stores = await SellerStore.find({ isArchive: false })
       .sort({ createdAt: -1 })
       .limit(10);
 
-
-    const storeIds = stores.map(store => store._id);
+    const storeIds = stores.map((store) => store._id);
 
     const uniqueStores = await SellerStoreProduct.aggregate([
       {
@@ -154,12 +180,12 @@ const getHomePageData = asyncHandler(async (req, res) => {
       {
         $group: {
           _id: "$sellerStoreDetails._id",
-          sellerStore: { $first: "$sellerStoreDetails" }
+          sellerStore: { $first: "$sellerStoreDetails" },
         },
       },
       // Flatten sellerStore data
       {
-        $replaceRoot: { newRoot: "$sellerStore" }
+        $replaceRoot: { newRoot: "$sellerStore" },
       },
       { $sort: { createdAt: -1 } },
       { $limit: 10 },
@@ -187,6 +213,19 @@ const getHomePageData = asyncHandler(async (req, res) => {
         },
       },
     ]);
+
+    uniqueStores.map(async (store) => {
+      // Check if the store is in favourites for the current customer
+      const favourite = await mongoose.model("Favourite").findOne({
+        store: store._id, // Match store ID
+        customerId: ObjectId(customerId), // Match the logged-in customer ID
+      });
+
+      // Add the 'isFavourite' field to the store
+      store.isFavourite = favourite ? true : false;
+
+      return store; // Return the updated store object
+    });
 
     // const uniqueStores = await SellerStoreProduct.aggregate([
     //   {
@@ -276,10 +315,8 @@ const getHomePageData = asyncHandler(async (req, res) => {
     //   },
     // ]);
 
-
-
     // Helper function to fetch products based on type
-    const fetchProducts = async (type) => {
+    const fetchProducts = async (type, customerId) => {
       return await SellerStoreProduct.aggregate([
         {
           $match: {
@@ -358,6 +395,31 @@ const getHomePageData = asyncHandler(async (req, res) => {
           },
         },
         { $unwind: "$sizeInfo" },
+        // Join with favourites collection
+        {
+          $lookup: {
+            from: "favourites", // Name of your favourites collection
+            let: { productId: "$productDetails._id" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ["$product", "$$productId"] },
+                      { $eq: ["$customerId", ObjectId(customerId)] },
+                    ],
+                  },
+                },
+              },
+            ],
+            as: "favouriteInfo",
+          },
+        },
+        {
+          $addFields: {
+            isFavourite: { $gt: [{ $size: "$favouriteInfo" }, 0] }, // True if favouriteInfo array is not empty
+          },
+        },
         // Apply filters based on query parameter.
         {
           $match: {
@@ -371,57 +433,66 @@ const getHomePageData = asyncHandler(async (req, res) => {
             //   ],
             // }),
             // Gender filter (exact match, no $or needed)
-            ...(gender && { "sizeDetails.gender": { $regex: new RegExp(gender, 'i') } }),
+            ...(gender && {
+              "sizeDetails.gender": { $regex: new RegExp(gender, "i") },
+            }),
 
             // Price range filter (retailCost should be within minPrice and maxPrice)
-            ...(minPrice || maxPrice ? {
-              "productDetails.retailCost": {
-                ...(minPrice && { $gte: Number(minPrice) }),
-                ...(maxPrice && { $lte: Number(maxPrice) }),
-              },
-            } : {}),
+            ...(minPrice || maxPrice
+              ? {
+                  "productDetails.retailCost": {
+                    ...(minPrice && { $gte: Number(minPrice) }),
+                    ...(maxPrice && { $lte: Number(maxPrice) }),
+                  },
+                }
+              : {}),
 
-            ...(category && { "productDetails.category": { $regex: new RegExp(category, 'i') } }),
+            ...(category && {
+              "productDetails.category": { $regex: new RegExp(category, "i") },
+            }),
 
             // Brand filter (match exact brands, all brand conditions must match)
             ...(brandArray.length > 0 && {
-              $and: brandArray.map(b => ({
-                "productDetails.name": { $regex: new RegExp(b, 'i') },
+              $and: brandArray.map((b) => ({
+                "productDetails.name": { $regex: new RegExp(b, "i") },
               })),
             }),
 
             // Condition filter (match product conditions, all conditions must match)
             ...(conditionArray.length > 0 && {
-              $and: conditionArray.map(con => ({
-                "sizeDetails.productCondition": { $regex: new RegExp(con, 'i') },
+              $and: conditionArray.map((con) => ({
+                "sizeDetails.productCondition": {
+                  $regex: new RegExp(con, "i"),
+                },
               })),
             }),
 
             // Size and Apparel Size filters (combine sizeArray and apparelSizeArray using OR)
-            ...(sizeArray.length > 0 || apparelSizeArray.length > 0 ? {
-              $or: [
-                ...(sizeArray.length > 0
-                  ? sizeArray.map(s => ({
-                    "sizeInfo.name": { $regex: new RegExp(s, 'i') },
-                  }))
-                  : []),
-                ...(apparelSizeArray.length > 0
-                  ? apparelSizeArray.map(a => ({
-                    "sizeInfo.name": { $regex: new RegExp(a, 'i') },
-                  }))
-                  : []),
-              ],
-            } : {}), // Only include $or if either sizeArray or apparelSizeArray has elements
+            ...(sizeArray.length > 0 || apparelSizeArray.length > 0
+              ? {
+                  $or: [
+                    ...(sizeArray.length > 0
+                      ? sizeArray.map((s) => ({
+                          "sizeInfo.name": { $regex: new RegExp(s, "i") },
+                        }))
+                      : []),
+                    ...(apparelSizeArray.length > 0
+                      ? apparelSizeArray.map((a) => ({
+                          "sizeInfo.name": { $regex: new RegExp(a, "i") },
+                        }))
+                      : []),
+                  ],
+                }
+              : {}), // Only include $or if either sizeArray or apparelSizeArray has elements
 
             // Color filter (match any of the provided colors)
             ...(colorsArray.length > 0 && {
-              $or: colorsArray.map(c => ({
-                "productDetails.colorInfo.name": { $regex: new RegExp(c, 'i') },
+              $or: colorsArray.map((c) => ({
+                "productDetails.colorInfo.name": { $regex: new RegExp(c, "i") },
               })),
             }),
           },
         },
-
 
         {
           $group: {
@@ -431,25 +502,24 @@ const getHomePageData = asyncHandler(async (req, res) => {
             sizes: { $push: "$sizeInfo" },
             productConditions: { $push: "$sizeDetails.productCondition" },
             colorInfo: { $first: "$productDetails.colorInfo" },
-            name: { $first: '$productDetails.name' },
-            retailCost: { $first: '$productDetails.retailCost' },
-            cardImage: { $first: '$productDetails.cardImage' },
-            slug: { $first: '$productDetails.slug' },
-            sellerStore: { $first: '$productDetails.sellerStore' },
-
+            name: { $first: "$productDetails.name" },
+            retailCost: { $first: "$productDetails.retailCost" },
+            cardImage: { $first: "$productDetails.cardImage" },
+            slug: { $first: "$productDetails.slug" },
+            sellerStore: { $first: "$productDetails.sellerStore" },
+            isFavourite: { $first: "$isFavourite" },
           },
         },
-        { $sort: { createdAt: -1 } },
-        { $limit: 10 },
-
+        // { $sort: { createdAt: -1 } },
+        // { $limit: 10 },
       ]);
     };
-
+    console.log(customerId, "customerId306");
     // Fetch sneakers and apparel products
     const [sneakers, apparel, allProducts] = await Promise.all([
-      fetchProducts("sneaker"),
-      fetchProducts("apparel"),
-      fetchProducts()
+      fetchProducts("sneaker", customerId),
+      fetchProducts("apparel", customerId),
+      fetchProducts(null, customerId),
     ]);
 
     // Construct the home data response
@@ -467,21 +537,18 @@ const getHomePageData = asyncHandler(async (req, res) => {
   }
 });
 
-
-
-
 const getHomePageSearchData = asyncHandler(async (req, res) => {
   try {
     const { search } = req.query;
     const searchQuery = search ? search.trim() : "";
-    console.log(searchQuery, 472)
+    console.log(searchQuery, 472);
 
     // Fetch latest non-archived stores
     const stores = await SellerStore.find({ isArchive: false })
       .sort({ createdAt: -1 })
       .limit(5);
 
-    const storeIds = stores.map(store => store._id);
+    const storeIds = stores.map((store) => store._id);
 
     const uniqueStores = await SellerStoreProduct.aggregate([
       {
@@ -527,7 +594,9 @@ const getHomePageSearchData = asyncHandler(async (req, res) => {
       {
         $match: {
           $or: [
-            { "sellerStoreDetails.name": { $regex: searchQuery, $options: "i" } },
+            {
+              "sellerStoreDetails.name": { $regex: searchQuery, $options: "i" },
+            },
           ],
         },
       },
@@ -541,7 +610,7 @@ const getHomePageSearchData = asyncHandler(async (req, res) => {
       },
       // Flatten sellerStore and seller data
       {
-        $replaceRoot: { newRoot: "$sellerStore" }
+        $replaceRoot: { newRoot: "$sellerStore" },
         // $replaceRoot: { newRoot: { $mergeObjects: ["$sellerStore", "$seller"] } }
       },
       { $sort: { createdAt: -1 } },
@@ -621,11 +690,25 @@ const getHomePageSearchData = asyncHandler(async (req, res) => {
           $match: {
             ...(search && {
               $or: [
-
                 // { "productDetails.name": { $regex: `^${searchQuery}$`, $options: "i" } },
-                { "productDetails.name": { $regex: `^${searchQuery}`, $options: "i" } },
-                { "productDetails.category": { $regex: searchQuery, $options: "i" } },
-                { "productDetails.colorInfo.name": { $regex: searchQuery, $options: "i" } },
+                {
+                  "productDetails.name": {
+                    $regex: `^${searchQuery}`,
+                    $options: "i",
+                  },
+                },
+                {
+                  "productDetails.category": {
+                    $regex: searchQuery,
+                    $options: "i",
+                  },
+                },
+                {
+                  "productDetails.colorInfo.name": {
+                    $regex: searchQuery,
+                    $options: "i",
+                  },
+                },
                 { "sizeInfo.name": { $regex: searchQuery, $options: "i" } },
                 { "productDetails.retailCost": { $eq: Number(search) } },
               ],
@@ -643,7 +726,7 @@ const getHomePageSearchData = asyncHandler(async (req, res) => {
           },
         },
         { $sort: { createdAt: -1 } },
-        { $limit: 5 }
+        { $limit: 5 },
       ]);
     };
 
@@ -651,7 +734,7 @@ const getHomePageSearchData = asyncHandler(async (req, res) => {
     const [sneakers, apparel, allProducts] = await Promise.all([
       fetchProducts("sneaker"),
       fetchProducts("apparel"),
-      fetchProducts()
+      fetchProducts(),
     ]);
 
     // Construct the home data response
@@ -662,13 +745,21 @@ const getHomePageSearchData = asyncHandler(async (req, res) => {
       products: allProducts,
     };
 
-    const allData = [...homeData.stores, ...homeData.sneakers, ...homeData.apparel, ...homeData.products];
+    const allData = [
+      ...homeData.stores,
+      ...homeData.sneakers,
+      ...homeData.apparel,
+      ...homeData.products,
+    ];
     const limitedData = allData.slice(0, 5);
     const uniqueProducts = [];
     const seenProductIds = new Set();
 
     limitedData.forEach((item) => {
-      const productId = item.product_id !== undefined ? item?.product_id.toString() : item?._id.toString();
+      const productId =
+        item.product_id !== undefined
+          ? item?.product_id.toString()
+          : item?._id.toString();
       if (!seenProductIds.has(productId)) {
         uniqueProducts.push(item);
         seenProductIds.add(productId);
@@ -686,16 +777,14 @@ const getSearchListData = asyncHandler(async (req, res) => {
     const { search, tabName } = req.query;
     const searchQuery = search ? search.trim() : "";
 
-    console.log("searchQuery", searchQuery)
+    console.log("searchQuery", searchQuery);
 
     // Fetch latest non-archived stores
     const stores = await SellerStore.find({ isArchive: false })
       .sort({ createdAt: -1 })
       .limit(5);
 
-
-    const storeIds = stores.map(store => store._id);
-
+    const storeIds = stores.map((store) => store._id);
 
     const uniqueStores = await SellerStoreProduct.aggregate([
       {
@@ -740,11 +829,13 @@ const getSearchListData = asyncHandler(async (req, res) => {
       {
         $match: {
           $or: [
-            // { "sellerStoreDetails.name": `^${searchQuery.slice(0, 3)}$`, $options: "i" } 
+            // { "sellerStoreDetails.name": `^${searchQuery.slice(0, 3)}$`, $options: "i" }
             //  $regex: `^${searchQuery.slice(0, 3)}`,
             // `^${searchQuery}{3}$`,
 
-            { "sellerStoreDetails.name": { $regex: searchQuery, $options: "i" } },
+            {
+              "sellerStoreDetails.name": { $regex: searchQuery, $options: "i" },
+            },
           ],
         },
       },
@@ -758,7 +849,7 @@ const getSearchListData = asyncHandler(async (req, res) => {
       },
       // Flatten sellerStore and seller data
       {
-        $replaceRoot: { newRoot: "$sellerStore" }
+        $replaceRoot: { newRoot: "$sellerStore" },
         // $replaceRoot: { newRoot: { $mergeObjects: ["$sellerStore", "$seller"] } }
       },
       { $sort: { createdAt: -1 } },
@@ -838,7 +929,12 @@ const getSearchListData = asyncHandler(async (req, res) => {
           $match: {
             ...(search && {
               $or: [
-                { "productDetails.name": { $regex: `^${searchQuery}`, $options: "i" } },
+                {
+                  "productDetails.name": {
+                    $regex: `^${searchQuery}`,
+                    $options: "i",
+                  },
+                },
                 // { "productDetails.category": { $regex: searchQuery, $options: "i" } },
                 // { "productDetails.colorInfo.name": { $regex: searchQuery, $options: "i" } },
                 // { "productDetails.retailCost": { $eq: Number(search) } },
@@ -850,9 +946,9 @@ const getSearchListData = asyncHandler(async (req, res) => {
           $group: {
             _id: "$productDetails._id",
             product_name: { $first: "$productDetails.name" },
-            cardImage: { $first: '$productDetails.cardImage' },
-            retailCost: { $first: '$productDetails.retailCost' },
-            slug: { $first: '$productDetails.slug' },
+            cardImage: { $first: "$productDetails.cardImage" },
+            retailCost: { $first: "$productDetails.retailCost" },
+            slug: { $first: "$productDetails.slug" },
           },
         },
         { $sort: { createdAt: -1 } },
@@ -863,7 +959,7 @@ const getSearchListData = asyncHandler(async (req, res) => {
     const [sneakers, apparel, allProducts] = await Promise.all([
       fetchProducts("sneaker"),
       fetchProducts("apparel"),
-      fetchProducts()
+      fetchProducts(),
     ]);
 
     // Construct the home data response
@@ -874,8 +970,12 @@ const getSearchListData = asyncHandler(async (req, res) => {
       products: allProducts,
     };
 
-    const allData = [...homeData.stores, ...homeData.sneakers, ...homeData.apparel, ...homeData.products];
-
+    const allData = [
+      ...homeData.stores,
+      ...homeData.sneakers,
+      ...homeData.apparel,
+      ...homeData.products,
+    ];
 
     let finalData = [];
     switch (tabName) {
@@ -886,12 +986,18 @@ const getSearchListData = asyncHandler(async (req, res) => {
         finalData = allData.filter((data) => data.seller !== undefined);
         break;
       case "3":
-        finalData = allData.filter((data) => data.retailCost !== undefined && data.retailCost !== null)
+        finalData = allData
+          .filter(
+            (data) => data.retailCost !== undefined && data.retailCost !== null
+          )
           .sort((a, b) => a.retailCost - b.retailCost);
         break;
       case "4":
-        finalData = allData.filter((data) => data.retailCost !== undefined && data.retailCost !== null)
-          .sort((a, b) =>  b.retailCost - a.retailCost);
+        finalData = allData
+          .filter(
+            (data) => data.retailCost !== undefined && data.retailCost !== null
+          )
+          .sort((a, b) => b.retailCost - a.retailCost);
         break;
       default:
         finalData = allData;
@@ -902,7 +1008,8 @@ const getSearchListData = asyncHandler(async (req, res) => {
     const seenProductIds = new Set();
 
     finalData.forEach((item) => {
-      const _id = item._id !== undefined ? item?._id.toString() : item?._id.toString();
+      const _id =
+        item._id !== undefined ? item?._id.toString() : item?._id.toString();
       if (!seenProductIds.has(_id)) {
         uniqueProducts.push(item);
         seenProductIds.add(_id);
@@ -916,11 +1023,10 @@ const getSearchListData = asyncHandler(async (req, res) => {
   }
 });
 
-
 const getNotifications = async (req, res) => {
   try {
     const { customerId } = req.query;
-    console.log("customerId", customerId)
+    console.log("customerId", customerId);
     if (!customerId) {
       return res.status(400).json({
         status: StatusCodes.BAD_REQUEST,
@@ -941,11 +1047,14 @@ const getNotifications = async (req, res) => {
 
     const query = {
       isDeleted: false,
-      customerId: findCustomer?._id
-    }
-    const notificationLists = await NotificationModel.find(query).populate("customerId", "name email image").populate('orderId').sort({ createdAt: -1 }).limit(10);
+      customerId: findCustomer?._id,
+    };
+    const notificationLists = await NotificationModel.find(query)
+      .populate("customerId", "name email image")
+      .populate("orderId")
+      .sort({ createdAt: -1 })
+      .limit(10);
     res.status(200).json(notificationLists);
-
   } catch (error) {
     return res.status(500).json({
       status: StatusCodes.INTERNAL_SERVER_ERROR,
@@ -953,8 +1062,11 @@ const getNotifications = async (req, res) => {
       data: error.message,
     });
   }
-}
+};
 
-
-
-export { getHomePageData, getHomePageSearchData, getSearchListData, getNotifications };
+export {
+  getHomePageData,
+  getHomePageSearchData,
+  getSearchListData,
+  getNotifications,
+};

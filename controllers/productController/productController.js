@@ -11,6 +11,7 @@ import SellerStoreProduct from "#models/productModel/sellerStoreProductModel.js"
 import Color from "#models/colorModel/colorModel.js";
 import ProductRequestModel from "#models/productModel/productRequest.js";
 import mongoose from "mongoose";
+import favouriteModel from "#models/favouriteModel/favouriteModel.js";
 
 //Get All products
 
@@ -142,7 +143,6 @@ const getAllProduct = asyncHandler(async (req, res) => {
 });
 
 const getAllProductRequested = asyncHandler(async (req, res) => {
-
   const { limit = 10, page } = req.query;
 
   if (!page) {
@@ -150,9 +150,9 @@ const getAllProductRequested = asyncHandler(async (req, res) => {
   }
   const offset = (page - 1) * limit;
 
-
-  const productRequested = await ProductRequestModel.find({
-  }).populate('requestedBy', 'name').sort({ createdAt: -1 });
+  const productRequested = await ProductRequestModel.find({})
+    .populate("requestedBy", "name")
+    .sort({ createdAt: -1 });
 
   const paginatedProducts = productRequested.slice(offset, offset + limit);
   res.status(200).json({
@@ -164,9 +164,11 @@ const getAllProductRequested = asyncHandler(async (req, res) => {
 
 const updateRequestedProductAction = asyncHandler(async (req, res) => {
   const { id, action } = req.query;
-  const productRequested = await ProductRequestModel.findByIdAndUpdate({ _id:id}, {isPosted: action == "close"})
-  res.status(200).json({productRequested
-  });
+  const productRequested = await ProductRequestModel.findByIdAndUpdate(
+    { _id: id },
+    { isPosted: action == "close" }
+  );
+  res.status(200).json({ productRequested });
 });
 
 const getAllProductByType = asyncHandler(async (req, res) => {
@@ -195,9 +197,6 @@ const getAllProductByType = asyncHandler(async (req, res) => {
     totalPage: Math.ceil(products.length / limit),
   });
 });
-
-
-
 
 const getNotAddedProductByType = asyncHandler(async (req, res) => {
   const { search, type, sellerStore } = req.query;
@@ -527,14 +526,19 @@ const getSingleProductBySlug = asyncHandler(async (req, res) => {
     if (product.colorWay && product.colorWay.length > 0) {
       try {
         // Parse the JSON string inside colorWay array to extract an array of color IDs
-        const colorIds = JSON.parse(product.colorWay[0]).map(id => new mongoose.Types.ObjectId(id));
-        console.log(colorIds,"colorIds")
+        const colorIds = JSON.parse(product.colorWay[0]).map(
+          (id) => new mongoose.Types.ObjectId(id)
+        );
+        console.log(colorIds, "colorIds");
 
         // Fetch colors based on the parsed color IDs
-        const colors = await Color.find({ _id: { $in: colorIds } }, { name: 1 });
-        console.log(colors,"colors")
+        const colors = await Color.find(
+          { _id: { $in: colorIds } },
+          { name: 1 }
+        );
+        console.log(colors, "colors");
         // Extract color names from the color documents and add them as an array
-        result.colorway = colors.map(color => color.name);
+        result.colorway = colors.map((color) => color.name);
       } catch (error) {
         console.error("Error parsing colorWay or fetching colors:", error);
         // If there's an error in fetching colors, fallback to the original colorWay field
@@ -547,12 +551,11 @@ const getSingleProductBySlug = asyncHandler(async (req, res) => {
 
     // Return the product with the color names in colorway
     return res.status(200).json(result);
-  } 
+  }
 
   // Handle the case where the product is not found
   return res.status(404).json({ message: "Product not found" });
 });
-
 
 const updateSingleProduct = asyncHandler(async (req, res) => {
   try {
@@ -662,6 +665,42 @@ const totalProducts = asyncHandler(async (req, res) => {
   res.status(200).json(totalProducts);
 });
 
+const makeFavourite = asyncHandler(async (req, res) => {
+  const { id, type } = req.body;
+
+  const filter = {
+    customerId: req.customer._id,
+    type: type,
+  };
+
+  if (type === "product") {
+    filter.product = id;
+  } else if (type === "store") {
+    filter.store = id;
+  } else {
+    return res.status(400).json({ message: "Invalid type" });
+  }
+
+  const existingFavourite = await favouriteModel.findOne(filter);
+  if (existingFavourite) {
+    await favouriteModel.deleteOne(filter);
+    return res.status(200).json({ message: "Removed from favourites" });
+  } else {
+    const data = {
+      customerId: req.customer._id,
+      type: type,
+    };
+    if (type === "product") {
+      data.product = id;
+    } else {
+      data.store = id;
+    }
+    const favourite = await favouriteModel.create(data);
+
+    res.status(200).json(favourite);
+  }
+});
+
 export {
   getAllProduct,
   getSingleProductAllItem,
@@ -684,5 +723,6 @@ export {
   getTrendingSneaker,
   getNotAddedProductByType,
   getAllProductRequested,
-  updateRequestedProductAction
+  updateRequestedProductAction,
+  makeFavourite,
 };
